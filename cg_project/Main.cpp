@@ -147,6 +147,8 @@ float cube_vertices[] = {
 };											 
 
 const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+
+const unsigned int ENV_WIDTH = 1024, ENV_HEIGHT = 1024;
 int window_width = WINDOW_WIDTH, window_height = WINDOW_HEIGHT;
 
 signed main() {
@@ -217,6 +219,17 @@ signed main() {
 		make_shared<Shader>("shadow.frag", GL_FRAGMENT_SHADER),
 		make_shared<Shader>("shadow.geom", GL_GEOMETRY_SHADER)
 	});
+	shared_ptr<ShaderProgram> env_program = make_shared<ShaderProgram>
+		(vector<shared_ptr<Shader>>{
+		make_shared<Shader>("env.vert", GL_VERTEX_SHADER),
+			make_shared<Shader>("env.frag", GL_FRAGMENT_SHADER),
+			make_shared<Shader>("env.geom", GL_GEOMETRY_SHADER)
+	});
+	shared_ptr<ShaderProgram> refract_program = make_shared<ShaderProgram>
+		(vector<shared_ptr<Shader>>{
+		make_shared<Shader>("refract.vert", GL_VERTEX_SHADER),
+		make_shared<Shader>("refract.frag", GL_FRAGMENT_SHADER)
+	});
 
 
 	shared_ptr<Texture> texture_white = make_shared<Texture>();
@@ -225,9 +238,6 @@ signed main() {
 	shared_ptr<Texture> wood_floor = make_shared<Texture>("wood.png");
 
 	shared_ptr<Texture> engraver = make_shared<Texture>(10, 10);
-	shader_program->use();
-	shader_program->setInt("texture1", 0);
-	shader_program->setInt("texture2", 1);
 
 	// Setup lights
 	point_lights.push_back({
@@ -235,7 +245,7 @@ signed main() {
 		{0.5,0.5,0.5}, //ambient
 		{1,1,1}, //diffuse
 		{.5,.5,.5}, //specular
-		{0,0,1}, //attenuation
+		{0,.2,1}, //attenuation
 		1, //enable
 	});
 	point_lights.push_back({
@@ -255,11 +265,40 @@ signed main() {
 		{0,0,1},
 		1,
 	});
-	GLuint* depthmap = new GLuint[point_lights.size()];
-	GLuint* depthFBO = new GLuint[point_lights.size()];
-	glGenTextures(point_lights.size(), depthmap);
-	glGenFramebuffers(point_lights.size(), depthFBO);
-	for (int i = 0; i < point_lights.size(); ++i) {
+
+	GLuint environMap;
+	GLuint environFBO;
+	glGenTextures(1, &environMap);
+	glGenFramebuffers(1, &environFBO); 
+	glBindTexture(GL_TEXTURE_CUBE_MAP, environMap);
+	for (int i = 0; i < 6; ++i) {
+		GLenum face = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
+		glTexImage2D(face, 0, GL_RGB, ENV_WIDTH, ENV_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+	}
+	// Render the scence in a single pass 
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, environFBO);
+
+	glFramebufferTexture(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0 , environMap, 0);
+	//GLuint depthRBO;
+	//glGenRenderbuffers(1, &depthRBO);
+	//glBindRenderbuffer(GL_RENDERBUFFER, depthRBO);
+	//glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, ENV_WIDTH, ENV_HEIGHT);
+	//glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRBO);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
+
+	GLuint* depthmap = new GLuint[point_lights.size() + 1];
+	GLuint* depthFBO = new GLuint[point_lights.size() + 1];
+	glGenTextures(point_lights.size() + 1, depthmap);
+	glGenFramebuffers(point_lights.size() + 1, depthFBO);
+	for (int i = 0; i < point_lights.size() + 1; ++i) {
 		glBindTexture(GL_TEXTURE_CUBE_MAP, depthmap[i]);
 		for (int i = 0; i < 6; ++i) {
 			GLenum face = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
@@ -278,11 +317,20 @@ signed main() {
 		glReadBuffer(GL_NONE);
 	}
 
+	shader_program->use();
 
 	shader_program->setVec3("material.ambient", vec3(.2));
 	shader_program->setVec3("material.diffuse", vec3(.8));
 	shader_program->setVec3("material.specular", vec3(1));
 	shader_program->setFloat("material.shininess",32);
+
+	env_program->use();
+	env_program->setVec3("material.ambient", vec3(.2));
+	env_program->setVec3("material.diffuse", vec3(.8));
+	env_program->setVec3("material.specular", vec3(1));
+	env_program->setFloat("material.shininess", 32);
+
+	shader_program->use();
 
 	shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot.obj");
 	shared_ptr<Model> teapot = make_shared<Model>(teapot_raw->vertices, teapot_raw->vertex_size * 8 * 4, teapot_raw->vertex_size);
@@ -311,6 +359,13 @@ signed main() {
 		{0,-1,0},
 	};
 
+	vec3 refract_model_position = { -5,5,1 };
+	shared_ptr<Camera> env_camera = make_shared<Camera>();
+	env_camera->fov = 90;
+	env_camera->nearp = 1.0f;
+	env_camera->farp = 100.0f;
+	env_camera->windowResize(ENV_WIDTH, ENV_HEIGHT);
+
 	//Main loop
 	shared_ptr<Camera> light_camera = make_shared<Camera>();
 	light_camera->fov = 90;
@@ -322,10 +377,20 @@ signed main() {
 	shadow_program->setInt("texture2", 1);
 	shadow_program->setFloat("far_plane", light_camera->farp);
 
+	env_program->use();
+	env_program->setInt("texture1", 0);
+	env_program->setInt("texture2", 1);
+
+	for (int l = 0; l <= point_lights.size(); ++l) {
+		env_program->setInt("depthmap[" + std::to_string(l) + "]", 2 + l);
+	}
+	env_program->setFloat("far_plane", light_camera->farp);
+
 	shader_program->use();
 	shader_program->setInt("texture1", 0);
 	shader_program->setInt("texture2", 1);
-	for (int l = 0; l < point_lights.size(); ++l) {
+
+	for (int l = 0; l <= point_lights.size(); ++l) {
 		shader_program->setInt("depthmap[" +std::to_string(l)+ "]", 2 + l);
 	}
 	shader_program->setFloat("far_plane", light_camera->farp);
@@ -344,9 +409,6 @@ signed main() {
 		delta_stamp = glfwGetTime();
 		updateWorld(window,delta);
 
-		shader_program->setMat4("view", camera->view);
-		shader_program->setMat4("proj", camera->proj);
-		shader_program->setVec3("view_position", camera->position);
 		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
 #pragma region LightParameterPass
@@ -449,19 +511,70 @@ signed main() {
 			draw_scence(shadow_program);
 		}
 
+		shadow_program->use();
+		env_camera->position = refract_model_position;
+		for (int i = 0; i < 6; ++i) {
+			env_camera->vup = axis_up[i];
+			env_camera->lookAt(axis[i] + refract_model_position);
+			shadow_program->setMat4("lightSpaceMatrices[" + std::to_string(i) + "]", env_camera->getMatrix());
+		}
+		shadow_program->setInt("current_light", -1);
+		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthFBO[point_lights.size()]);
+
+		glClear(GL_DEPTH_BUFFER_BIT);
+		draw_scence(shadow_program);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		for (int l = 0; l <= point_lights.size(); ++l) {
+			glActiveTexture(GL_TEXTURE2 + l);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, depthmap[l]);
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, environFBO);
+		glViewport(0, 0, ENV_WIDTH, ENV_HEIGHT);
+
+		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		env_program->use();
+		env_camera->position = refract_model_position;
+		for (int i = 0; i < 6; ++i) {
+			env_camera->vup = axis_up[i];
+			env_camera->lookAt(axis[i] + refract_model_position);
+			env_program->setMat4("spaceMatrices[" + std::to_string(i) + "]", env_camera->getMatrix());
+		}
+		env_program->setVec3("view_position", refract_model_position);
+		draw_scence(env_program);
+
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, window_width, window_height);
 
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		for (int l = 0; l < point_lights.size(); ++l) {
-			glActiveTexture(GL_TEXTURE2 + l);
-			glBindTexture(GL_TEXTURE_CUBE_MAP, depthmap[l]);
-		}
 		shader_program->use();
+		shader_program->setMat4("view", camera->view);
+		shader_program->setMat4("proj", camera->proj);
+		shader_program->setVec3("view_position", camera->position);
 		shader_program->setInt("showing_depth_map", showing_depth_map);
 		draw_scence(shader_program);
+
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, environMap);
+		refract_program->use();
+		refract_program->setMat4("view", camera->view);
+		refract_program->setMat4("proj", camera->proj);
+		refract_program->setVec3("camera_position", camera->position);
+		refract_program->setInt("reflection", 0);
+		shader_program->setMat4("model", mat4::trans(refract_model_position));
+		teapot->draw();
+		
+		shader_program->use();
 
 		render_ui(fps);
 		glfwSwapBuffers(window);

@@ -56,6 +56,11 @@ float CalculateShadow(int i){
 }
 
 void main(){
+
+	vec3 camToPixel = pixelPos - view_position;
+	float cdepth = texture(depthmap[POINT_LIGHTS_COUNT - 1], normalize(camToPixel)).r;
+	if(length(camToPixel)/100.0 - 0.08 > cdepth) discard;
+
 	if(isLight != 0){
 		color = vec4(point_lights[isLight-1].diffuse,1.0f);
 		return;

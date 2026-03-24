@@ -33,10 +33,11 @@ uniform float far_plane;
 uniform sampler2D texture1;
 uniform sampler2D texture2;
 uniform int engraved;
+uniform vec3 refract_position;
 
 void main(){
-	float light_distance = length(fragPos.xyz - point_lights[current_light].position);
-	light_distance = light_distance / far_plane;
+	float light_distance = length(current_light < 0 ? fragPos.xyz - refract_position : fragPos.xyz - point_lights[current_light].position);
+	light_distance = light_distance / (current_light < 0 ? 100. : far_plane);
 	if(texture(texture2, TexCoord).g <= 0.5f && engraved == 1){
 		discard;
 	}

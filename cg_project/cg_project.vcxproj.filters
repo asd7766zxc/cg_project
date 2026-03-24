@@ -121,5 +121,20 @@
     <None Include="shadow.geom">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="env.geom">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="env.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="env.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="refract.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="refract.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

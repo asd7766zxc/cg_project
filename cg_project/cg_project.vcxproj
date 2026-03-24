@@ -165,6 +165,11 @@
     <ClInclude Include="VertexObject.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="env.frag" />
+    <None Include="env.geom" />
+    <None Include="env.vert" />
+    <None Include="refract.frag" />
+    <None Include="refract.vert" />
     <None Include="shadow.frag" />
     <None Include="shadow.geom" />
     <None Include="shadow.vert" />
