@@ -3,17 +3,26 @@
 #include "aabb.hpp"
 #include "Model.hpp"
 #include "ShaderProgram.hpp"
+enum GeometryType {
+	PLANE,
+	SPHERE,
+};
 class GameObject {
 public:
 	vec3 position;
 	vec3 scale;
 	vec3 rotation;
-	aabb bounding_box;
+	shared_ptr<aabb> bounding_box;
+	vec3 velocity;
+	vec3 forces;
 	shared_ptr<Model> model;
+	shared_ptr<Texture> texture;
+	GeometryType type;
 
 	GameObject(vec3 position = vec3(0, 0, 0), vec3 scale = vec3(1, 1, 1), vec3 rotation = vec3(0, 0, 0))
 		:position(position), scale(scale), rotation(rotation) {
-		bounding_box.ref_obj = shared_ptr<GameObject>(this);
+		//bounding_box.ref_obj = shared_ptr<GameObject>(this);
+		bounding_box = make_shared<aabb>();
 	}
 
 	mat4 localToWorld() const {
@@ -24,26 +33,73 @@ public:
 			mat4::Rx(rotation.x) * // 把軸轉成對齊
 			mat4::scale(scale);
 	}
-
-	virtual bool hit(GameObject& other);
+	virtual void update_aabb() = 0;
 };
 
 class Sphere : public GameObject {
-	public:
+public:
 	float radius;
 	vec3 center;
-	Sphere(float radius, vec3 center, vec3 scale = vec3(1), vec3 rotation = vec3(0, 0, 0))
-		: GameObject(center, scale, rotation), radius(radius), center(center){
+	Sphere(float radius, vec3 center, vec3 rotation = vec3(0, 0, 0))
+		: GameObject(center, scale, rotation), radius(radius), center(center) {
+		type = SPHERE;
 		scale = vec3(radius);
 	}
-
-	void onHit(vec3 color) {
-
+	virtual void update_aabb() override {
+		bounding_box = make_shared<aabb>();
+		bounding_box->x = interval(-radius + position.x, +radius + position.x);
+		bounding_box->y = interval(-radius + position.y, +radius + position.y);
+		bounding_box->z = interval(-radius + position.z, +radius + position.z);
 	}
-
 	void draw(shared_ptr<ShaderProgram> shader_program) {
 		shader_program->setMat4("model", localToWorld());
-
+		glActiveTexture(GL_TEXTURE0);
+		texture->bind();
 		model->draw();
 	}
-}
+};
+
+class Plane : public GameObject {
+public:
+	vec3 center;
+	Plane(vec3 center, vec3 scale = vec3(1), vec3 rotation = vec3(0, 0, 0))
+		: GameObject(center, scale, rotation), center(center) {
+		type = PLANE;
+	}
+	virtual void update_aabb() override {
+		bounding_box = make_shared<aabb>();
+		vec3 o(0, 0, 0);
+		vec3 u(0, 0, 1);
+		vec3 v(1, 0, 0);
+		vec3 w = u + v;
+		float delta = 0.1;
+
+		o = (localToWorld() * vec4(o, 1.0)).toVec3();
+		u = (localToWorld() * vec4(u, 1.0)).toVec3();
+		v = (localToWorld() * vec4(v, 1.0)).toVec3();
+		w = (localToWorld() * vec4(w, 1.0)).toVec3();
+
+		for (auto e : vector<vec3>{ o,u,v,w }) {
+			bounding_box->x.adjust(e.x - delta);
+			bounding_box->y.adjust(e.y - delta);
+			bounding_box->z.adjust(e.z - delta);
+						
+			bounding_box->x.adjust(e.x + delta);
+			bounding_box->y.adjust(e.y + delta);
+			bounding_box->z.adjust(e.z + delta);
+		}
+	}
+	std::pair<vec3, vec3> transformedPlane() {
+		vec3 u(0, 0, 1);
+		vec3 v(1, 0, 0);
+		u = (localToWorld() * vec4(u, 0.0)).toVec3();
+		v = (localToWorld() * vec4(v, 0.0)).toVec3();
+		return { u,v };
+	}
+	void draw(shared_ptr<ShaderProgram> shader_program) {
+		shader_program->setMat4("model", localToWorld());
+		glActiveTexture(GL_TEXTURE0);
+		texture->bind();
+		model->draw();
+	}
+};

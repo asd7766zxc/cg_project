@@ -12,7 +12,7 @@ public:
 	aabb(interval x, interval y, interval z) : x(x), y(y), z(z) {}
 	aabb(aabb& a, aabb& b) : x(a.x, b.x), y(a.y, b.y), z(a.z, b.z) {}
 	
-	const interval& axis(int i) const {
+	const interval& axis(int i) {
 		if (i == 0) return x;
 		if (i == 1) return y;
 		return z;

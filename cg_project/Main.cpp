@@ -23,12 +23,14 @@
 #include "ModelLoader.hpp"
 #include "DynamicCubeMap.hpp"
 #include "MeshBuilder.hpp"
+#include "GameObject.hpp"
+#include <memory>
 
 shared_ptr<Camera> camera;
 
 bool camera_control = false;
 float player_movement_speed = 2.5f;
-
+std::function<void(int)> add_ball;
 struct PointLight {
 	float position[3];
 	float ambient[3];
@@ -64,8 +66,8 @@ void updateWorld(GLFWwindow* window, float delta) {
 	camera->updateView();
 
 	float R = 10.0f;
-	point_lights[2].position[0] = R * cos(glfwGetTime() * 0.1);
-	point_lights[2].position[2] = R * sin(glfwGetTime() * 0.1);
+	point_lights[2].position[0] = R * cos(glfwGetTime() * 0.1) + R;
+	point_lights[2].position[2] = R * sin(glfwGetTime() * 0.1) + R;
 }
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 	static double last_x = xpos, last_y = ypos;
@@ -77,6 +79,7 @@ void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 
 
 bool showing_depth_map = 0;
+int ball_batch = 1;
 void render_ui(float fps) {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -99,8 +102,10 @@ void render_ui(float fps) {
 			ImGui::TreePop();
 		}
 	}
+	ImGui::SliderInt("ball batch",&ball_batch, 1, 1000);
 	if (ImGui::Button("Add ball to Scence")) {
-		std::cout << "added\n";
+		std::cout << "added balls : " << ball_batch << "\n";
+		add_ball(ball_batch);
 	}
 	ImGui::End();
 
@@ -156,10 +161,14 @@ const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 const unsigned int ENV_WIDTH = 1024, ENV_HEIGHT = 1024;
 int window_width = WINDOW_WIDTH, window_height = WINDOW_HEIGHT;
 
+const unsigned int REGULAR_DIVISION = 8;
+const int regular_div = 21 / (REGULAR_DIVISION - 1);
+vector<shared_ptr<GameObject>> regular_grid[REGULAR_DIVISION + 1][REGULAR_DIVISION + 1][REGULAR_DIVISION + 1];
+
 signed main() {
 
 	camera = make_shared<Camera>();
-	camera->position = vec3(0, 0, 3);
+	camera->position = vec3(5, 5, 5);
 	camera->lookAt({ 0,0,0 });
 	camera->windowResize(window_width, window_height);
 
@@ -232,6 +241,11 @@ signed main() {
 
 
 	shared_ptr<Texture> texture_white = make_shared<Texture>();
+	shared_ptr<Texture> texture_blue = make_shared<Texture>(0xff0000);
+
+	shared_ptr<Texture> texture_yellow = make_shared<Texture>(0x00ffff);
+	shared_ptr<Texture> texture_green = make_shared<Texture>(0x00ff00);
+
 	shared_ptr<Texture> warning_tape = make_shared<Texture>("warningTape.png");
 	shared_ptr<Texture> warp_tape = make_shared<Texture>("warp.jpg");
 	shared_ptr<Texture> wood_floor = make_shared<Texture>("wood.png");
@@ -240,7 +254,7 @@ signed main() {
 
 	// Setup lights
 	point_lights.push_back({
-		{0,4,0}, //position
+		{10.5,21.5,10.5}, //position
 		{0.5,0.5,0.5}, //ambient
 		{1,1,1}, //diffuse
 		{.5,.5,.5}, //specular
@@ -363,10 +377,190 @@ signed main() {
 	dynamic_cube_map->depthmap = depthmap;
 
 	shared_ptr<MeshBuilder> mesh_builder = make_shared<MeshBuilder>();
-	shared_ptr<Model> sphere = mesh_builder->buildSphere(100);
-	//shared_ptr<Sphere>
+	shared_ptr<Model> sphere_mesh = mesh_builder->buildSphere(10);
+	shared_ptr<Model> plane_mesh = mesh_builder->buildPlane(1,vec3(0,0,1),vec3(1,0,0),vec3(0.0f));
+
+	vector<shared_ptr<GameObject>> entity_list;
+	vector<shared_ptr<Sphere>> spheres;
+	vector<shared_ptr<Plane>> floor;
+	vector<shared_ptr<Plane>> walls;
+
+	for (int i = 0; i < 21; ++i) {
+		for (int j = 0; j < 21; ++j) {
+			shared_ptr<Plane> plane = make_shared<Plane>(vec3(i,0,j));
+			plane->model = plane_mesh;
+			plane->texture = (i + j) % 2 ? texture_white : texture_blue;
+			floor.push_back(plane);
+		}
+	}
+#pragma region prepareWalls
+
+
+	auto plane = make_shared<Plane>(vec3(0,21,0), vec3(21) ,vec3(pi / 2,0,0));
+	plane->texture = texture_yellow;
+	plane->model = plane_mesh;
+	walls.push_back(plane);
+	plane = make_shared<Plane>(vec3(0, 21, 0), vec3(21), vec3(0, 0, -pi/2));
+	plane->texture = texture_green;
+	plane->model = plane_mesh;
+	walls.push_back(plane);
+	plane = make_shared<Plane>(vec3(21, 0, 0), vec3(21), vec3(0, 0, pi / 2));
+	plane->texture = texture_green;
+	plane->model = plane_mesh;
+	walls.push_back(plane);
+	plane = make_shared<Plane>(vec3(0, 0, 21), vec3(21), vec3(-pi/2, 0, 0));
+	plane->texture = texture_yellow;
+	plane->model = plane_mesh;
+	walls.push_back(plane);
+#pragma endregion
+
+	add_ball = [&](int ball_count) {
+		for (int i = 0; i < ball_count; ++i) {
+			auto tmp = make_shared<Sphere>(0.5, vec3(10, 10, 10));
+			tmp->model = sphere_mesh;
+			tmp->texture = texture_white;
+			tmp->velocity.x = random_float() - 0.5f;
+			tmp->velocity.y = random_float() - 0.5f;
+			tmp->velocity.z = random_float() - 0.5f;
+
+			tmp->position.x = (random_float() - 0.5f) * 10.f + 10.f;
+			tmp->position.y = (random_float() - 0.5f) * 10.f + 10.f;
+			tmp->position.z = (random_float() - 0.5f) * 10.f + 10.f;
+
+			tmp->velocity *= 100;
+			spheres.push_back(tmp);
+			entity_list.push_back(tmp);
+		}
+	};
+	auto resolve_collision = [&](auto &a, auto &b) {
+		if (a->type == b->type && a->type == SPHERE) {
+			auto A = std::static_pointer_cast<Sphere>(a);
+			auto B = std::static_pointer_cast<Sphere>(b);
+			auto w = A->position - B->position;
+			auto d = abs(w);
+			auto n = -w;
+			auto x = (A->radius + B->radius) - d;
+			if (x >= 0) {
+				a->texture = texture_white;
+				auto vel = a->velocity;
+				a->forces += x * n; // reflect
+			}
+		}
+
+		if (a->type == SPHERE && b->type == PLANE) {
+			auto sphere = std::static_pointer_cast<Sphere>(a);
+			auto plane = std::static_pointer_cast<Plane>(b);
+			auto [u, v] = plane->transformedPlane();
+			auto n = uni(u ^ v);
+			auto d = (sphere->position - plane->position) * n;
+			if (d > sphere->radius) return;
+			auto p = (sphere->position - (d * n)) - plane->position;
+			//suppose u perpendicular to v
+			auto up = (p * uni(u)) / abs(u);
+			auto vp = (p * uni(v)) / abs(v);
+
+			//Collided
+			if (0 <= up <= 1 && 0 <= vp && vp <= 1) {
+				a->texture = b->texture;
+				auto vel = a->velocity;
+				//a->velocity = vel - 2 * (n * vel) * n; // reflect
+				a->forces += -2 * (n * vel) * n;
+			}
+		}
+	};
+	auto collision_solve_naive = [&]() {
+		for (auto& a : entity_list) {
+			for (auto& b : entity_list) {
+				if (a == b) continue;
+				resolve_collision(a, b);
+			}
+		}
+	};
+
+	auto collision_solve_regular = [&]() {
+		for (auto& a : entity_list) {
+			if (a->type == PLANE) continue;
+			vector<shared_ptr<GameObject>> hitlist;
+
+			auto& bb = a->bounding_box;
+			int mnx = bb->x.min / regular_div;
+			int mxx = bb->x.max / regular_div;
+					
+			int mny = bb->y.min / regular_div;
+			int mxy = bb->y.max / regular_div;
+						
+			int mnz = bb->z.min / regular_div;
+			int mxz = bb->z.max / regular_div;
+
+			for (int x = mnx; x <= mxx; ++x) {
+				for (int y = mny; y <= mxy; ++y) {
+					for (int z = mnz; z <= mxz; ++z) {
+						if (x >= REGULAR_DIVISION || x < 0) continue;
+						if (y >= REGULAR_DIVISION || y < 0) continue;
+						if (z >= REGULAR_DIVISION || z < 0) continue;
+
+						hitlist.insert(hitlist.end(), regular_grid[x][y][z].begin(), regular_grid[x][y][z].end());
+					}
+				}
+			}
+			std::sort(hitlist.begin(), hitlist.end());
+			hitlist.erase(std::unique(hitlist.begin(), hitlist.end()),hitlist.end());
+			for (auto& b : hitlist) {
+				if (a == b) continue;
+				// a react to b
+				resolve_collision(a, b);
+			}
+		}
+		for (auto& c : regular_grid)
+			for (auto& b : c)
+				for (auto& d : b) {
+					d.clear();
+				}
+	};
+
+	const float dt = 0.001;
+	auto update_positions = [&]() {
+		for (auto& a : entity_list) {
+			auto dv = uni(a->velocity + a->forces) * abs(a->velocity); // conservation of momentum
+			if (abs(a->velocity + a->forces) < 1e-4) {
+				dv = 0.0f;
+			}
+			a->velocity = dv;
+			a->position += dv * dt;
+			a->forces = vec3(0.0);
+			a->update_aabb();
+			
+			auto& bb = a->bounding_box;
+			int mnx = bb->x.min / regular_div;
+			int mxx = bb->x.max / regular_div;
+						
+			int mny = bb->y.min / regular_div;
+			int mxy = bb->y.max / regular_div;
+						
+			int mnz = bb->z.min / regular_div;
+			int mxz = bb->z.max / regular_div;
+
+			for (int x = mnx; x <= mxx; ++x) {
+				for (int y = mny; y <= mxy; ++y) {
+					for (int z = mnz; z <= mxz; ++z) {
+						if (x >= REGULAR_DIVISION || x < 0) continue;
+						if (y >= REGULAR_DIVISION || y < 0) continue;
+						if (z >= REGULAR_DIVISION || z < 0) continue;
+
+						regular_grid[x][y][z].push_back(a);
+					}
+				}
+			}
+		}
+	};
+	for (auto& a : floor) entity_list.push_back(a);
+	for (auto& a : spheres) entity_list.push_back(a);
+	for (auto& a : walls) entity_list.push_back(a);
+
+
 	shader_program->use();
 	shader_program->setVec3("solid_color",vec3(1));
+
 	while (!glfwWindowShouldClose(window)) {
 #pragma region fpsCounter
 		frame_counter++;
@@ -380,6 +574,9 @@ signed main() {
 		delta = glfwGetTime() - delta_stamp;
 		delta_stamp = glfwGetTime();
 		updateWorld(window,delta);
+		update_positions();
+		//collision_solve_naive();
+		collision_solve_regular();
 
 		auto draw_scence1 = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
@@ -495,16 +692,15 @@ signed main() {
 
 			shader_program->setMat4("textureMat", mat4::scale(4));
 			shader_program->setMat4("model", mat4::Rx(0.1 * glfwGetTime()));
+			shader_program->setMat4("model", mat4::trans(vec3(2, 2, 1)));
 
+			glActiveTexture(GL_TEXTURE0);
+			texture_blue->bind();
 			
 
-			shader_program->setMat4("model", mat4::trans(vec3(2, 2, 1)));
-			glActiveTexture(GL_TEXTURE0);
-			texture_white->bind();
-			engraver->bind();
-			sphere->draw();
-
-
+			for (auto& plane : floor) plane->draw(shader_program);
+			for (auto& sphere : spheres) sphere->draw(shader_program);
+			for (auto& plane : walls) plane->draw(shader_program);
 		};
 
 

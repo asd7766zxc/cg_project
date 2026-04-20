@@ -1,5 +1,6 @@
 #pragma once
-#include <algorithm>
+#undef min
+#undef max
 class interval {
 public:
 	float min, max;
@@ -9,7 +10,10 @@ public:
 		min = std::min(a.min, b.min);
 		max = std::max(a.max, b.max);
 	}
-
+	void adjust(float v) {
+		max = std::max(max, v);
+		min = std::min(min, v);
+	}
 	float size() const {
 		return max - min;
 	}

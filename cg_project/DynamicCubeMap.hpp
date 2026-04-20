@@ -31,7 +31,7 @@ public:
 		{0,-1,0},
 		{0,-1,0},
 	};
-	vec3 refract_model_position = { -5,5,1 };
+	vec3 refract_model_position = { 10,5,5 };
 	const unsigned int shadow_width = 1024, shadow_height = 1024;
 	DynamicCubeMap(int _size, int light_count, shared_ptr<Camera> light_camera);
 	void drawBuffer(std::function<void(shared_ptr<ShaderProgram>)> draw_scence);
