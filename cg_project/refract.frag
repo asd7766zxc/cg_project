@@ -10,6 +10,7 @@ uniform vec3 camera_position;
 uniform int reflection;
 
 void main(){
+
 	vec3 I = normalize(pixelPos - camera_position);
 	float ratio = 1.00 / 1.52;;
 	vec3 R;

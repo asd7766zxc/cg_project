@@ -21,6 +21,8 @@
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "ModelLoader.hpp"
+#include "DynamicCubeMap.hpp"
+#include "MeshBuilder.hpp"
 
 shared_ptr<Camera> camera;
 
@@ -96,6 +98,9 @@ void render_ui(float fps) {
 			ImGui::Checkbox("enable", &point_lights[i].enable);
 			ImGui::TreePop();
 		}
+	}
+	if (ImGui::Button("Add ball to Scence")) {
+		std::cout << "added\n";
 	}
 	ImGui::End();
 
@@ -219,12 +224,6 @@ signed main() {
 		make_shared<Shader>("shadow.frag", GL_FRAGMENT_SHADER),
 		make_shared<Shader>("shadow.geom", GL_GEOMETRY_SHADER)
 	});
-	shared_ptr<ShaderProgram> env_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-		make_shared<Shader>("env.vert", GL_VERTEX_SHADER),
-			make_shared<Shader>("env.frag", GL_FRAGMENT_SHADER),
-			make_shared<Shader>("env.geom", GL_GEOMETRY_SHADER)
-	});
 	shared_ptr<ShaderProgram> refract_program = make_shared<ShaderProgram>
 		(vector<shared_ptr<Shader>>{
 		make_shared<Shader>("refract.vert", GL_VERTEX_SHADER),
@@ -266,34 +265,7 @@ signed main() {
 		1,
 	});
 
-	GLuint environMap;
-	GLuint environFBO;
-	glGenTextures(1, &environMap);
-	glGenFramebuffers(1, &environFBO); 
-	glBindTexture(GL_TEXTURE_CUBE_MAP, environMap);
-	for (int i = 0; i < 6; ++i) {
-		GLenum face = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
-		glTexImage2D(face, 0, GL_RGB, ENV_WIDTH, ENV_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
-	}
-	// Render the scence in a single pass 
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, environFBO);
-
-	glFramebufferTexture(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0 , environMap, 0);
-	//GLuint depthRBO;
-	//glGenRenderbuffers(1, &depthRBO);
-	//glBindRenderbuffer(GL_RENDERBUFFER, depthRBO);
-	//glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, ENV_WIDTH, ENV_HEIGHT);
-	//glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRBO);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
-
 	GLuint* depthmap = new GLuint[point_lights.size() + 1];
 	GLuint* depthFBO = new GLuint[point_lights.size() + 1];
 	glGenTextures(point_lights.size() + 1, depthmap);
@@ -324,12 +296,7 @@ signed main() {
 	shader_program->setVec3("material.specular", vec3(1));
 	shader_program->setFloat("material.shininess",32);
 
-	env_program->use();
-	env_program->setVec3("material.ambient", vec3(.2));
-	env_program->setVec3("material.diffuse", vec3(.8));
-	env_program->setVec3("material.specular", vec3(1));
-	env_program->setFloat("material.shininess", 32);
-
+	
 	shader_program->use();
 
 	shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot.obj");
@@ -359,12 +326,6 @@ signed main() {
 		{0,-1,0},
 	};
 
-	vec3 refract_model_position = { -5,5,1 };
-	shared_ptr<Camera> env_camera = make_shared<Camera>();
-	env_camera->fov = 90;
-	env_camera->nearp = 1.0f;
-	env_camera->farp = 100.0f;
-	env_camera->windowResize(ENV_WIDTH, ENV_HEIGHT);
 
 	//Main loop
 	shared_ptr<Camera> light_camera = make_shared<Camera>();
@@ -377,15 +338,6 @@ signed main() {
 	shadow_program->setInt("texture2", 1);
 	shadow_program->setFloat("far_plane", light_camera->farp);
 
-	env_program->use();
-	env_program->setInt("texture1", 0);
-	env_program->setInt("texture2", 1);
-
-	for (int l = 0; l <= point_lights.size(); ++l) {
-		env_program->setInt("depthmap[" + std::to_string(l) + "]", 2 + l);
-	}
-	env_program->setFloat("far_plane", light_camera->farp);
-
 	shader_program->use();
 	shader_program->setInt("texture1", 0);
 	shader_program->setInt("texture2", 1);
@@ -393,8 +345,28 @@ signed main() {
 	for (int l = 0; l <= point_lights.size(); ++l) {
 		shader_program->setInt("depthmap[" +std::to_string(l)+ "]", 2 + l);
 	}
+	
 	shader_program->setFloat("far_plane", light_camera->farp);
 
+	auto updateProgram = [&]() {
+		shader_program->use();
+		shader_program->setMat4("view", camera->view);
+		shader_program->setMat4("proj", camera->proj);
+		shader_program->setVec3("view_position", camera->position);
+		shader_program->setInt("showing_depth_map", showing_depth_map);
+	};
+
+
+	shared_ptr<DynamicCubeMap> dynamic_cube_map = make_shared<DynamicCubeMap>(1024,point_lights.size(), light_camera);
+	dynamic_cube_map->shadow_program = shadow_program;
+	dynamic_cube_map->depthFBO = depthFBO;
+	dynamic_cube_map->depthmap = depthmap;
+
+	shared_ptr<MeshBuilder> mesh_builder = make_shared<MeshBuilder>();
+	shared_ptr<Model> sphere = mesh_builder->buildSphere(100);
+	//shared_ptr<Sphere>
+	shader_program->use();
+	shader_program->setVec3("solid_color",vec3(1));
 	while (!glfwWindowShouldClose(window)) {
 #pragma region fpsCounter
 		frame_counter++;
@@ -409,7 +381,7 @@ signed main() {
 		delta_stamp = glfwGetTime();
 		updateWorld(window,delta);
 
-		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
+		auto draw_scence1 = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
 #pragma region LightParameterPass
 			for (int i = 0; i < point_lights.size(); ++i) {
@@ -494,6 +466,47 @@ signed main() {
 			wood_floor->bind();
 			teapot->draw();
 		};
+		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
+			shader_program->use();
+#pragma region LightParameterPass
+			for (int i = 0; i < point_lights.size(); ++i) {
+				shader_program->setVec3("point_lights[" + std::to_string(i) + "].position", point_lights[i].position);
+				shader_program->setVec3("point_lights[" + std::to_string(i) + "].ambient", point_lights[i].ambient);
+				shader_program->setVec3("point_lights[" + std::to_string(i) + "].diffuse", point_lights[i].diffuse);
+				shader_program->setVec3("point_lights[" + std::to_string(i) + "].specular", point_lights[i].specular);
+				shader_program->setVec3("point_lights[" + std::to_string(i) + "].attenuation", point_lights[i].attenuation);
+				shader_program->setInt("point_lights[" + std::to_string(i) + "].enable", point_lights[i].enable);
+			}
+#pragma endregion
+
+			//Engraving texture
+			glActiveTexture(GL_TEXTURE1);
+			texture_white->bind();
+
+			for (int l = 0; l < point_lights.size(); ++l) {
+				if (point_lights[l].enable) {
+					shader_program->setInt("isLight", 1 + l);
+					shader_program->setMat4("model", mat4::trans(point_lights[l].position));
+					cube->draw();
+				}
+			}
+
+			shader_program->setInt("isLight", 0);
+
+			shader_program->setMat4("textureMat", mat4::scale(4));
+			shader_program->setMat4("model", mat4::Rx(0.1 * glfwGetTime()));
+
+			
+
+			shader_program->setMat4("model", mat4::trans(vec3(2, 2, 1)));
+			glActiveTexture(GL_TEXTURE0);
+			texture_white->bind();
+			engraver->bind();
+			sphere->draw();
+
+
+		};
+
 
 		for (int l = 0; l < point_lights.size(); ++l) {
 			shadow_program->use();
@@ -511,44 +524,7 @@ signed main() {
 			draw_scence(shadow_program);
 		}
 
-		shadow_program->use();
-		env_camera->position = refract_model_position;
-		for (int i = 0; i < 6; ++i) {
-			env_camera->vup = axis_up[i];
-			env_camera->lookAt(axis[i] + refract_model_position);
-			shadow_program->setMat4("lightSpaceMatrices[" + std::to_string(i) + "]", env_camera->getMatrix());
-		}
-		shadow_program->setInt("current_light", -1);
-		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		glBindFramebuffer(GL_FRAMEBUFFER, depthFBO[point_lights.size()]);
-
-		glClear(GL_DEPTH_BUFFER_BIT);
-		draw_scence(shadow_program);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		for (int l = 0; l <= point_lights.size(); ++l) {
-			glActiveTexture(GL_TEXTURE2 + l);
-			glBindTexture(GL_TEXTURE_CUBE_MAP, depthmap[l]);
-		}
-
-		glBindFramebuffer(GL_FRAMEBUFFER, environFBO);
-		glViewport(0, 0, ENV_WIDTH, ENV_HEIGHT);
-
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		env_program->use();
-		env_camera->position = refract_model_position;
-		for (int i = 0; i < 6; ++i) {
-			env_camera->vup = axis_up[i];
-			env_camera->lookAt(axis[i] + refract_model_position);
-			env_program->setMat4("spaceMatrices[" + std::to_string(i) + "]", env_camera->getMatrix());
-		}
-		env_program->setVec3("view_position", refract_model_position);
-		draw_scence(env_program);
+		dynamic_cube_map->drawBuffer(draw_scence);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, window_width, window_height);
@@ -556,22 +532,18 @@ signed main() {
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		shader_program->use();
-		shader_program->setMat4("view", camera->view);
-		shader_program->setMat4("proj", camera->proj);
-		shader_program->setVec3("view_position", camera->position);
-		shader_program->setInt("showing_depth_map", showing_depth_map);
+		updateProgram();
 		draw_scence(shader_program);
 
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, environMap);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, dynamic_cube_map->environMap);
 		refract_program->use();
 		refract_program->setMat4("view", camera->view);
 		refract_program->setMat4("proj", camera->proj);
 		refract_program->setVec3("camera_position", camera->position);
-		refract_program->setInt("reflection", 0);
-		shader_program->setMat4("model", mat4::trans(refract_model_position));
+		refract_program->setInt("reflection", 1);
+		refract_program->setMat4("model", mat4::trans(dynamic_cube_map->refract_model_position));
 		teapot->draw();
 		
 		shader_program->use();

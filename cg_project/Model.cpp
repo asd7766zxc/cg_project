@@ -12,7 +12,7 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	std::cout << vertices[5] << '\n';
+	//std::cout << vertices[5] << '\n';
 	glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);

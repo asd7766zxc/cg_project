@@ -54,6 +54,33 @@ Texture::Texture(int width, int height, int engravesize) : width(width), height(
 		}
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 }
+Texture::Texture(int width, int height, vec3 colorA, vec3 colorB) : width(width), height(height), nrChannels(4) {
+	glGenTextures(1, &ID);
+	glBindTexture(GL_TEXTURE_2D, ID);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	BYTE* data = new BYTE[width * height * 4];
+	for (int i = 0; i < width; ++i)
+		for (int j = 0; j < height; ++j) {
+			int index = (j * width + i) * 4;
+			if (i > width / 2 && j > height / 2) {
+				data[index + 0] = 0xff;
+				data[index + 1] = 0xff;
+				data[index + 2] = 0xff;
+				data[index + 3] = 0xff;
+			}
+			else {
+				data[index + 0] = 0x0;
+				data[index + 1] = 0x0;
+				data[index + 2] = 0x0;
+				data[index + 3] = 0x0;
+			}
+		}
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+}
 Texture::Texture() {
 	glGenTextures(1, &ID);
 	glBindTexture(GL_TEXTURE_2D, ID);

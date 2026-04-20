@@ -143,6 +143,7 @@
     <ClCompile Include="..\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="DynamicCubeMap.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Model.cpp" />
@@ -152,9 +153,16 @@
     <ClCompile Include="VertexObject.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="aabb.hpp" />
+    <ClInclude Include="bvh.hpp" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="Constants.hpp" />
+    <ClInclude Include="DepthCubeMap.hpp" />
+    <ClInclude Include="DynamicCubeMap.hpp" />
+    <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="Helpers.hpp" />
+    <ClInclude Include="interval.hpp" />
+    <ClInclude Include="MeshBuilder.hpp" />
     <ClInclude Include="Model.hpp" />
     <ClInclude Include="ModelLoader.hpp" />
     <ClInclude Include="Shader.hpp" />
