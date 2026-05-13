@@ -144,6 +144,7 @@
     <ClCompile Include="..\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DynamicCubeMap.cpp" />
+    <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Helpers.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -184,6 +185,10 @@
     <None Include="shadow.vert" />
     <None Include="phong.frag" />
     <None Include="phong.vert" />
+    <None Include="voxelizer.frag" />
+    <None Include="voxelizer.vert" />
+    <None Include="voxelvisualizer.frag" />
+    <None Include="voxelvisualizer.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

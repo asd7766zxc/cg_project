@@ -3,9 +3,17 @@
 #include "aabb.hpp"
 #include "Model.hpp"
 #include "ShaderProgram.hpp"
+#include "Texture.hpp"
+
 enum GeometryType {
 	PLANE,
 	SPHERE,
+};
+struct voxelspace {
+	int dim_x, dim_y, dim_z;
+	float voxel_size;
+	vec3 box;
+	vec3 box_corner;
 };
 class GameObject {
 public:
@@ -18,13 +26,26 @@ public:
 	shared_ptr<Model> model;
 	shared_ptr<Texture> texture;
 	GeometryType type;
-
+	voxelspace voxel_info;
+	GLuint voxelTexture;
+	
+	BYTE empty_voxel_grid[100 * 100 * 100];
 	GameObject(vec3 position = vec3(0, 0, 0), vec3 scale = vec3(1, 1, 1), vec3 rotation = vec3(0, 0, 0))
 		:position(position), scale(scale), rotation(rotation) {
 		//bounding_box.ref_obj = shared_ptr<GameObject>(this);
 		bounding_box = make_shared<aabb>();
+		glGenTextures(1, &voxelTexture);
+		glBindTexture(GL_TEXTURE_3D, voxelTexture);
+		glTexStorage3D(GL_TEXTURE_3D, 1, GL_R32UI, 100, 100, 100); // roundup z dimension
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
+		memset(empty_voxel_grid, 0, sizeof(empty_voxel_grid));
+
 	}
 
+	// Local (Mesh coordinate)
 	mat4 localToWorld() const {
 		return
 			mat4::trans(position) * // ¦ì²¾
@@ -34,6 +55,11 @@ public:
 			mat4::scale(scale);
 	}
 	virtual void update_aabb() = 0;
+	
+	virtual void draw(shared_ptr<ShaderProgram> shader_program) = 0;
+
+	void voxelize(float voxel_size, shared_ptr<ShaderProgram> voxelizer);
+	void draw_voxel(shared_ptr<ShaderProgram> visualizer, shared_ptr<Model> cube_mesh);
 };
 
 class Sphere : public GameObject {
@@ -51,7 +77,7 @@ public:
 		bounding_box->y = interval(-radius + position.y, +radius + position.y);
 		bounding_box->z = interval(-radius + position.z, +radius + position.z);
 	}
-	void draw(shared_ptr<ShaderProgram> shader_program) {
+	void draw(shared_ptr<ShaderProgram> shader_program) override {
 		shader_program->setMat4("model", localToWorld());
 		glActiveTexture(GL_TEXTURE0);
 		texture->bind();
@@ -96,7 +122,7 @@ public:
 		v = (localToWorld() * vec4(v, 0.0)).toVec3();
 		return { u,v };
 	}
-	void draw(shared_ptr<ShaderProgram> shader_program) {
+	void draw(shared_ptr<ShaderProgram> shader_program) override {
 		shader_program->setMat4("model", localToWorld());
 		glActiveTexture(GL_TEXTURE0);
 		texture->bind();

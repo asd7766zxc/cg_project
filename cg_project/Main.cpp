@@ -63,6 +63,9 @@ void updateWorld(GLFWwindow* window, float delta) {
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 		camera->position -= camera_speed * -camera->view.transposed().x_axis();
 	}
+	if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+		add_ball(1);
+	}
 	camera->updateView();
 
 	float R = 10.0f;
@@ -79,7 +82,10 @@ void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 
 
 bool showing_depth_map = 0;
+bool enable_acc_structure = 1;
 int ball_batch = 1;
+float ball_speed_amplifiler = 1.0;
+bool split_window = false;
 void render_ui(float fps) {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -102,7 +108,11 @@ void render_ui(float fps) {
 			ImGui::TreePop();
 		}
 	}
-	ImGui::SliderInt("ball batch",&ball_batch, 1, 1000);
+	ImGui::SliderInt("Ball Batch",&ball_batch, 1, 1000);
+	//ImGui::Checkbox("Accelerated Structure",&enable_acc_structure);
+	ImGui::SliderFloat("Ball Initial Speed", &ball_speed_amplifiler, 0.0, 20.0);
+
+	ImGui::Checkbox("Split View", &split_window);
 	if (ImGui::Button("Add ball to Scence")) {
 		std::cout << "added balls : " << ball_batch << "\n";
 		add_ball(ball_batch);
@@ -164,12 +174,26 @@ int window_width = WINDOW_WIDTH, window_height = WINDOW_HEIGHT;
 const unsigned int REGULAR_DIVISION = 8;
 const int regular_div = 21 / (REGULAR_DIVISION - 1);
 vector<shared_ptr<GameObject>> regular_grid[REGULAR_DIVISION + 1][REGULAR_DIVISION + 1][REGULAR_DIVISION + 1];
-
+float d_width = window_width / 2.0;
+float d_height = window_height / 2.0;
+void onResize(GLFWwindow* window, int width, int height) {
+	glViewport(0, 0, width, height);
+	if (split_window)
+		camera->windowResize(width / 2.0, height / 2.0);
+	else {
+		camera->windowResize(width / 2.0, height / 2.0);
+	}
+	d_width = width / 2.0;
+	d_height = height / 2.0;
+	window_width = width;
+	window_height = height;
+}
 signed main() {
 
 	camera = make_shared<Camera>();
-	camera->position = vec3(5, 5, 5);
-	camera->lookAt({ 0,0,0 });
+	camera->position = vec3(10, 10, 10);
+	camera->lookAt({ 10,10,10 });
+	camera->yx = pi / 2;
 	camera->windowResize(window_width, window_height);
 
 #pragma region WindowInitialization
@@ -189,12 +213,7 @@ signed main() {
 	}
 
 	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height) {
-		glViewport(0, 0, width, height);
-		camera->windowResize(width, height);
-		window_width = width;
-		window_height = height;
-	});
+	glfwSetFramebufferSizeCallback(window, onResize);
 
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, cursor_pos_callback);
@@ -220,7 +239,18 @@ signed main() {
 #pragma endregion
 
 	glViewport(0, 0, window_width, window_height);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glDisable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_DEBUG_OUTPUT);
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Makes sure the error happens on the same thread
+	glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity,
+		GLsizei length, const GLchar* message, const void* userParam) {
+			fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+				(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
+				type, severity, message);
+		}, 0);
 
 	shared_ptr<ShaderProgram> shader_program = make_shared<ShaderProgram>
 		(vector<shared_ptr<Shader>>{ 
@@ -238,6 +268,19 @@ signed main() {
 		make_shared<Shader>("refract.vert", GL_VERTEX_SHADER),
 		make_shared<Shader>("refract.frag", GL_FRAGMENT_SHADER)
 	});
+
+	shared_ptr<ShaderProgram> voxelizer_program = make_shared<ShaderProgram>
+		(vector<shared_ptr<Shader>>{
+		make_shared<Shader>("voxelizer.vert", GL_VERTEX_SHADER),
+			make_shared<Shader>("voxelizer.frag", GL_FRAGMENT_SHADER)
+	});
+
+	shared_ptr<ShaderProgram> voxel_visualizer_program = make_shared<ShaderProgram>
+		(vector<shared_ptr<Shader>>{
+		make_shared<Shader>("voxelvisualizer.vert", GL_VERTEX_SHADER),
+			make_shared<Shader>("voxelvisualizer.frag", GL_FRAGMENT_SHADER)
+	});
+
 
 
 	shared_ptr<Texture> texture_white = make_shared<Texture>();
@@ -315,6 +358,7 @@ signed main() {
 
 	shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot.obj");
 	shared_ptr<Model> teapot = make_shared<Model>(teapot_raw->vertices, teapot_raw->vertex_size * 8 * 4, teapot_raw->vertex_size);
+	// [-.5,-.5,-.5] ~ [.5,.5,.5]
 	shared_ptr<Model> cube = make_shared<Model>(cube_vertices, sizeof(cube_vertices), 36);
 	int frame_counter = 0;
 	int frame_sample = 500;
@@ -384,6 +428,15 @@ signed main() {
 	vector<shared_ptr<Sphere>> spheres;
 	vector<shared_ptr<Plane>> floor;
 	vector<shared_ptr<Plane>> walls;
+	vector<shared_ptr<Plane>> boxes;
+	vector<shared_ptr<GameObject>> draw_list;
+
+	shared_ptr<Sphere> voxel_sphere = make_shared<Sphere>(0.5,vec3(0.0));
+	voxel_sphere->texture = texture_yellow;
+	voxel_sphere->position = vec3(12,10,10);
+
+	voxel_sphere->model = sphere_mesh;
+
 
 	for (int i = 0; i < 21; ++i) {
 		for (int j = 0; j < 21; ++j) {
@@ -393,6 +446,76 @@ signed main() {
 			floor.push_back(plane);
 		}
 	}
+
+#pragma region prepareBox
+	vector<shared_ptr<Plane>> uni_box;
+
+	auto p = make_shared<Plane>(vec3(0, 1, 1), vec3(1), vec3(pi / 2, 0, 0));
+	p->texture = warp_tape;
+	p->model = plane_mesh;
+	uni_box.push_back(p);
+	
+	p = make_shared<Plane>(vec3(1, 1, 0), vec3(1), vec3(0, 0, -pi / 2));
+	p->texture = warp_tape;
+	p->model = plane_mesh;
+	uni_box.push_back(p);
+	
+	p = make_shared<Plane>(vec3(0, 0, 0), vec3(1), vec3(0, 0, pi / 2));
+	p->texture = warp_tape;
+	p->model = plane_mesh;
+	uni_box.push_back(p);
+	
+	p = make_shared<Plane>(vec3(0, 0, 0), vec3(1), vec3(-pi / 2, 0, 0));
+	p->texture = warp_tape;
+	p->model = plane_mesh;
+	uni_box.push_back(p);
+	
+	p = make_shared<Plane>(vec3(0, 1, 0), vec3(1), vec3(0, 0, 0));
+	p->texture = warp_tape;
+	p->model = plane_mesh;
+	uni_box.push_back(p);
+
+	p = make_shared<Plane>(vec3(1, 0, 0), vec3(1), vec3(0, 0, -pi));
+	p->texture = warp_tape;
+	p->model = plane_mesh;
+	uni_box.push_back(p);
+#pragma endregion
+	auto addbox = [&](vec3 pos, vec3 rot, vec3 scale) {
+		auto p = make_shared<Plane>(mul(vec3(0, 1, 1), scale) + pos, scale, vec3(pi / 2, 0, 0) + rot);
+		p->texture = warp_tape;
+		p->model = plane_mesh;
+		boxes.push_back(p);
+
+		p = make_shared<Plane>(mul(vec3(1, 1, 0), scale) + pos, scale, vec3(0, 0, -pi / 2) + rot);
+		p->texture = warp_tape;
+		p->model = plane_mesh;
+		boxes.push_back(p);
+
+		p = make_shared<Plane>(mul(vec3(0, 0, 0), scale) + pos, scale, vec3(0, 0, pi / 2) + rot);
+		p->texture = warp_tape;
+		p->model = plane_mesh;
+		boxes.push_back(p);
+
+		p = make_shared<Plane>(mul(vec3(0, 0, 0), scale) + pos, scale, vec3(-pi / 2, 0, 0) + rot);
+		p->texture = warp_tape;
+		p->model = plane_mesh;
+		boxes.push_back(p);
+
+		p = make_shared<Plane>(mul(vec3(0, 1, 0), scale) + pos, scale, vec3(0, 0, 0) + rot);
+		p->texture = warp_tape;
+		p->model = plane_mesh;
+		boxes.push_back(p);
+
+		p = make_shared<Plane>(mul(vec3(1, 0, 0), scale) + pos, scale, vec3(0, 0, -pi) + rot);
+		p->texture = warp_tape;
+		p->model = plane_mesh;
+		boxes.push_back(p);
+
+	};
+	addbox(vec3(10, 0, 10), vec3(0, 0, 0), vec3(3));
+	addbox(vec3(10, 10, 0), vec3(0, 0, 0), vec3(5));
+	addbox(vec3(20, 10, 0), vec3(0, 0, 0), vec3(8));
+
 #pragma region prepareWalls
 
 
@@ -423,13 +546,14 @@ signed main() {
 			tmp->velocity.y = random_float() - 0.5f;
 			tmp->velocity.z = random_float() - 0.5f;
 
-			tmp->position.x = (random_float() - 0.5f) * 10.f + 10.f;
-			tmp->position.y = (random_float() - 0.5f) * 10.f + 10.f;
-			tmp->position.z = (random_float() - 0.5f) * 10.f + 10.f;
+			tmp->position.x = 4 * (random_float() - 0.5f) + 10.f;
+			tmp->position.y = 4 * (random_float() - 0.5f) + 10.f;
+			tmp->position.z = 4 * (random_float() - 0.5f) + 10.f;
 
-			tmp->velocity *= 100;
+			tmp->velocity *= 100 * ball_speed_amplifiler;
 			spheres.push_back(tmp);
 			entity_list.push_back(tmp);
+			draw_list.push_back(tmp);
 		}
 	};
 	auto resolve_collision = [&](auto &a, auto &b) {
@@ -437,13 +561,27 @@ signed main() {
 			auto A = std::static_pointer_cast<Sphere>(a);
 			auto B = std::static_pointer_cast<Sphere>(b);
 			auto w = A->position - B->position;
-			auto d = abs(w);
-			auto n = -w;
-			auto x = (A->radius + B->radius) - d;
-			if (x >= 0) {
-				a->texture = texture_white;
-				auto vel = a->velocity;
-				a->forces += x * n; // reflect
+			auto n = w / abs(w);
+			auto& va = A->velocity;
+			auto& vb = B->velocity;
+			// projected speed swap
+			if (abs(w) < A->radius + B->radius) {
+
+				auto atv = va - (va * n) * n; //tangent direction speed converse 
+				auto btv = vb - (vb * n) * n;
+				auto anv = va - atv;
+				auto bnv = vb - btv; //normal direction swapped (regarded as a 1-d collision)
+				if ((bnv - anv) * n > 0){ //seperating
+					return;
+				}
+
+				//swap the anv & bnv
+				va = bnv + atv;
+				vb = anv + btv;
+
+				//replusion 
+
+				//B->forces += n * 4;
 			}
 		}
 
@@ -454,13 +592,13 @@ signed main() {
 			auto n = uni(u ^ v);
 			auto d = (sphere->position - plane->position) * n;
 			if (d > sphere->radius) return;
-			auto p = (sphere->position - (d * n)) - plane->position;
+			auto p = (sphere->position - plane->position) - (d * n);
 			//suppose u perpendicular to v
 			auto up = (p * uni(u)) / abs(u);
 			auto vp = (p * uni(v)) / abs(v);
 
 			//Collided
-			if (0 <= up <= 1 && 0 <= vp && vp <= 1) {
+			if (0 <= up && up <= 1 && 0 <= vp && vp <= 1) {
 				a->texture = b->texture;
 				auto vel = a->velocity;
 				//a->velocity = vel - 2 * (n * vel) * n; // reflect
@@ -468,15 +606,7 @@ signed main() {
 			}
 		}
 	};
-	auto collision_solve_naive = [&]() {
-		for (auto& a : entity_list) {
-			for (auto& b : entity_list) {
-				if (a == b) continue;
-				resolve_collision(a, b);
-			}
-		}
-	};
-
+	
 	auto collision_solve_regular = [&]() {
 		for (auto& a : entity_list) {
 			if (a->type == PLANE) continue;
@@ -507,21 +637,24 @@ signed main() {
 			hitlist.erase(std::unique(hitlist.begin(), hitlist.end()),hitlist.end());
 			for (auto& b : hitlist) {
 				if (a == b) continue;
+				if (a->type == SPHERE && b->type == SPHERE && (a > b)) continue;
 				// a react to b
 				resolve_collision(a, b);
 			}
 		}
-		for (auto& c : regular_grid)
-			for (auto& b : c)
-				for (auto& d : b) {
-					d.clear();
-				}
 	};
 
 	const float dt = 0.001;
 	auto update_positions = [&]() {
+	for (auto& c : regular_grid)
+		for (auto& b : c)
+			for (auto& d : b) {
+				d.clear();
+			}
 		for (auto& a : entity_list) {
+			//a->forces += vec3(0, -1, 0);
 			auto dv = uni(a->velocity + a->forces) * abs(a->velocity); // conservation of momentum
+			//auto dv = a->velocity + a->forces;
 			if (abs(a->velocity + a->forces) < 1e-4) {
 				dv = 0.0f;
 			}
@@ -557,6 +690,13 @@ signed main() {
 	for (auto& a : spheres) entity_list.push_back(a);
 	for (auto& a : walls) entity_list.push_back(a);
 
+	for (auto& a : floor) draw_list.push_back(a);
+	for (auto& a : spheres) draw_list.push_back(a);
+	for (auto& a : walls) draw_list.push_back(a);
+
+	for (auto& a : boxes) entity_list.push_back(a);
+	for (auto& a : boxes) draw_list.push_back(a);
+
 
 	shader_program->use();
 	shader_program->setVec3("solid_color",vec3(1));
@@ -574,95 +714,11 @@ signed main() {
 		delta = glfwGetTime() - delta_stamp;
 		delta_stamp = glfwGetTime();
 		updateWorld(window,delta);
+
 		update_positions();
-		//collision_solve_naive();
 		collision_solve_regular();
+		
 
-		auto draw_scence1 = [&](shared_ptr<ShaderProgram> shader_program) {
-			shader_program->use();
-#pragma region LightParameterPass
-			for (int i = 0; i < point_lights.size(); ++i) {
-				shader_program->setVec3("point_lights[" + std::to_string(i) + "].position", point_lights[i].position);
-				shader_program->setVec3("point_lights[" + std::to_string(i) + "].ambient", point_lights[i].ambient);
-				shader_program->setVec3("point_lights[" + std::to_string(i) + "].diffuse", point_lights[i].diffuse);
-				shader_program->setVec3("point_lights[" + std::to_string(i) + "].specular", point_lights[i].specular);
-				shader_program->setVec3("point_lights[" + std::to_string(i) + "].attenuation", point_lights[i].attenuation);
-				shader_program->setInt("point_lights[" + std::to_string(i) + "].enable", point_lights[i].enable);
-			}
-#pragma endregion
-
-			//Engraving texture
-			glActiveTexture(GL_TEXTURE1);
-			texture_white->bind();
-
-			for (int l = 0; l < point_lights.size(); ++l) {
-				if (point_lights[l].enable) {
-					shader_program->setInt("isLight", 1 + l);
-					shader_program->setMat4("model", mat4::trans(point_lights[l].position));
-					cube->draw();
-				}
-			}
-
-			shader_program->setInt("isLight", 0);
-
-			shader_program->setMat4("textureMat", mat4::scale(4));
-			shader_program->setMat4("model", mat4::Rx(0.1 * glfwGetTime()));
-
-			shader_program->setInt("engraved", 1);
-			glActiveTexture(GL_TEXTURE0);
-			texture_white->bind();
-			glActiveTexture(GL_TEXTURE1);
-			engraver->bind();
-			cube->draw();
-
-			for (int i = 0; i < 5; ++i) {
-				if (i == 0) {
-					shader_program->setMat4("textureMat", mat4::scale(32));
-					shader_program->setInt("engraved", 1);
-				}
-				else {
-					shader_program->setMat4("textureMat", mat4::trans(vec3(1, 0, 0) * glfwGetTime() * 0.1));
-					shader_program->setInt("engraved", 0);
-				}
-
-				shader_program->setMat4("model", mat4::trans(vec3(-5 + i - 2 + cos(glfwGetTime() * ((i + 1) / 5.0)), i - 2 + cos(glfwGetTime() * ((i + 1) / 5.0)), -5 + i - 2 + sin(glfwGetTime() * ((i + 1) / 5.0)))) \
-					* mat4::scale(0.1) * mat4::Rx(glfwGetTime() * 0.1 * (i&1 ? 1 : -1)) * mat4::Ry(glfwGetTime() * 0.1 * (i & 1 ? -1 : 1)) * mat4::Rz(glfwGetTime() * 0.1 * (i & 1 ? 1 : -1)));
-				glActiveTexture(GL_TEXTURE0);
-				texture_white->bind();
-				if (i == 2) warp_tape->bind();
-				else if (i == 3) wood_floor->bind();
-				else if (i == 4) warning_tape->bind();
-				teapot->draw();
-			}
-
-			shader_program->setInt("engraved", 1);
-			shader_program->setMat4("model", mat4::trans(vec3(1, 1, 1)));
-			shader_program->setMat4("textureMat", mat4::trans(vec3(1, 0, 0) * glfwGetTime() * 0.1));
-			glActiveTexture(GL_TEXTURE0);
-			warning_tape->bind();
-			glActiveTexture(GL_TEXTURE1);
-			warning_tape->bind();
-			cube->draw();
-
-
-			shader_program->setInt("engraved", 0);
-
-			shader_program->setMat4("model", mat4::trans(vec3(5, -3.2, 5)) * mat4::scale(0.1));
-			glActiveTexture(GL_TEXTURE0);
-			texture_white->bind();
-			teapot->draw();
-
-			shader_program->setMat4("model", mat4::trans(vec3(2, 2, 1)) * mat4::Ry(0.5) * mat4::scale(0.1));
-			glActiveTexture(GL_TEXTURE0);
-			warp_tape->bind();
-			teapot->draw();
-
-			shader_program->setMat4("textureMat", mat4::scale(32));
-			shader_program->setMat4("model", mat4::trans(vec3(0, -5, 0)) * mat4::scale(vec3(10)));
-			glActiveTexture(GL_TEXTURE0);
-			wood_floor->bind();
-			teapot->draw();
-		};
 		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
 #pragma region LightParameterPass
@@ -693,14 +749,12 @@ signed main() {
 			shader_program->setMat4("textureMat", mat4::scale(4));
 			shader_program->setMat4("model", mat4::Rx(0.1 * glfwGetTime()));
 			shader_program->setMat4("model", mat4::trans(vec3(2, 2, 1)));
+			shader_program->use();
 
 			glActiveTexture(GL_TEXTURE0);
 			texture_blue->bind();
 			
-
-			for (auto& plane : floor) plane->draw(shader_program);
-			for (auto& sphere : spheres) sphere->draw(shader_program);
-			for (auto& plane : walls) plane->draw(shader_program);
+			for (auto& a : draw_list) a->draw(shader_program);
 		};
 
 
@@ -721,28 +775,65 @@ signed main() {
 		}
 
 		dynamic_cube_map->drawBuffer(draw_scence);
-
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, window_width, window_height);
 
+		auto draw_world = [&]() {
+			updateProgram();
+			draw_scence(shader_program);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, dynamic_cube_map->environMap);
+			refract_program->use();
+			refract_program->setMat4("view", camera->view);
+			refract_program->setMat4("proj", camera->proj);
+			refract_program->setVec3("camera_position", camera->position);
+			refract_program->setInt("reflection", 1);
+			refract_program->setMat4("model", mat4::trans(dynamic_cube_map->refract_model_position));
+			teapot->draw();
+		
+			shader_program->use();
+
+
+			voxel_sphere->update_aabb();
+			//voxel_sphere->draw(shader_program);
+			voxel_sphere->voxelize(0.05, voxelizer_program);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+			glViewport(0, 0, window_width, window_height);
+			voxel_visualizer_program->use();
+			voxel_visualizer_program->setMat4("proj", camera->proj);
+			voxel_visualizer_program->setMat4("view", camera->view);
+			voxel_sphere->draw_voxel(voxel_visualizer_program, cube);
+
+		};
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		updateProgram();
-		draw_scence(shader_program);
-
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, dynamic_cube_map->environMap);
-		refract_program->use();
-		refract_program->setMat4("view", camera->view);
-		refract_program->setMat4("proj", camera->proj);
-		refract_program->setVec3("camera_position", camera->position);
-		refract_program->setInt("reflection", 1);
-		refract_program->setMat4("model", mat4::trans(dynamic_cube_map->refract_model_position));
-		teapot->draw();
-		
-		shader_program->use();
+		if (split_window) {
+			auto old_pos = camera->position;
+			vector<float> dx{ 0,d_width };
+			vector<float> dy{ 0,d_height };
+			for (int i = 0; i < 2; ++i) {
+				for (int j = 0; j < 2; ++j) {
+					glViewport(dx[i], dy[j], d_width, d_height);
+					if (i == j && j == 1) {
+						camera->position = old_pos;
+						camera->windowResize(d_width, d_height);
+						camera->updateView();
+						draw_world();
+					}
+					else {
+						camera->position = axis[(i * 2 + j) * 2] * 10.5 + (vec3(1) - axis[(i * 2 + j) * 2]);
+						camera->lookAt(vec3(10.5) + (vec3(1) - axis[(i * 2 + j) * 2]));
+						camera->make_ortho(d_width, d_height, 10);
+						draw_world();
+					}
+				}
+			}
+		}
+		else {
+			glViewport(0, 0, window_width, window_height);
+			draw_world();
+		}
 
 		render_ui(fps);
 		glfwSwapBuffers(window);

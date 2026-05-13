@@ -33,6 +33,28 @@ void Camera::updateProj(int w, int h, float nearp, float farp, float fov) {
 	proj[11] = (2 * farp * nearp) / d;
 	proj[14] = -1.0f;
 }
+
+void Camera::make_ortho(int w, int h, float sz = 10) {
+	float aspect_ratio = float(h) / float(w);
+	float nearp = -0.0f;
+	float farp = 100.0;
+	float left = -sz;
+	float right = sz;
+	float bottom = -sz * aspect_ratio;
+	float top = sz * aspect_ratio;
+	proj.makeZero();
+	proj[3] = -(right + left) / (right - left);
+	proj[7] = -(top + bottom) / (top - bottom);
+	proj[11] = -(farp + nearp) / (farp - nearp);
+
+	proj[0] = 2 / (right - left);
+	proj[5] = 2 / (top - bottom);
+	proj[10] = -2 / (farp - nearp);
+	proj[15] = 1;
+	//std::cout << proj << '\n';
+	return;
+}
+
 void Camera::windowResize(int w, int h) {
 	updateProj(w, h, nearp, farp, fov);
 }

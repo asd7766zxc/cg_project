@@ -19,6 +19,7 @@ public:
 	void lookAt(vec3 focus);
 	void mouseMove(float dx, float dy);
 	void updateProj(int w, int h, float nearp, float farp, float fov);
+	void make_ortho(int w, int h, float sz);
 	void windowResize(int w, int h);
 	mat4 getMatrix() const;
 	vec3 getLookAt();

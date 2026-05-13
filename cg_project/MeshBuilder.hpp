@@ -59,7 +59,7 @@ public:
 
 			}
 		}
-		for (int i = 0; i < step; ++i) {
+		/*for (int i = 0; i < step; ++i) {
 			for (int j = 0; j < step; ++j) {
 				to_inv_cartesian(i, j);
 				to_inv_cartesian((i + 1) % (step + 1), j);
@@ -69,7 +69,7 @@ public:
 				to_inv_cartesian((i + 1) % (step + 1), (j + 1) % (step + 1));
 				to_inv_cartesian(i, (j + 1) % (step + 1));
 			}
-		}
+		}*/
 		return make_shared<Model>(vertices.data(), vertices.size() * sizeof(float), vertices.size() / 8);
 	}
 

@@ -58,6 +58,10 @@ float CalculateShadow(int i){
 
 void main(){
 	if(isLight != 0){
+		if(isLight < 0){
+			color = vec4(1);
+			return;
+		}
 		color = vec4(point_lights[isLight-1].diffuse,1.0f);
 		return;
 	}

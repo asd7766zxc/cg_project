@@ -241,6 +241,13 @@ public:
 		mt[8] = z.x; mt[9] = z.y; mt[10] = z.z;  mt[11] = 0.0f;
 		mt[12] = 0.0f; mt[13] = 0.0f; mt[14] = 0.0f; mt[15] = 1.0f;
 	}
+
+	inline void makeOrtho(float l, float r, float b, float t, float n, float f) {
+		mt[0]  = 2/(r - l);  mt[1] = 0;			mt[2]  = 0;			mt[3]  = -(r + l) / (r - l);
+		mt[4]  = 0;		     mt[5] = 2/(t - b);	mt[6]  = 0;			mt[7]  = -(b + t) / (t - b);
+		mt[8]  = 0;		     mt[9] = 0;			mt[10] = 1/(f - n);	mt[11] = - n / (f - n);
+		mt[12] = 0.0f;       mt[13] = 0.0f;		mt[14] = 0.0f;	    mt[15] = 1.0f;
+	}
 	void makeIdentity() {
 		makeZero();
 		for (int i = 0; i < 4; ++i) mt[i * 4 + i] = 1;
@@ -256,6 +263,7 @@ public:
 	inline static matrix4 trans(vec3 t) { matrix4 m; m.makeTrans(t);	 return m; }
 	inline static matrix4 scale(vec3 s) { matrix4 m; m.makeScale(s);	 return m; }
 	inline static matrix4 coord(vec3 x, vec3 y, vec3 z) { matrix4 m; m.makeCoord(x, y, z); return m; }
+	inline static matrix4 ortho(float l, float r, float b, float t, float n, float f) { matrix4 m; m.makeOrtho(l,r,b,t,n,f);   return m; }
 	inline static matrix4 identity() { matrix4 m; m.makeIdentity();   return m; }
 
 	//Transpose
