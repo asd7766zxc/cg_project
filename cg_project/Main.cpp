@@ -25,6 +25,7 @@
 #include "MeshBuilder.hpp"
 #include "GameObject.hpp"
 #include <memory>
+#include "VoxelHelper.hpp"
 
 shared_ptr<Camera> camera;
 
@@ -122,49 +123,7 @@ void render_ui(float fps) {
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
-float cube_vertices[] = {
-	-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
-											 		   
-	-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,
-											 		   
-	-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-											  		   
-	 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-											  		   
-	-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-											  		   
-	-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f
-};											 
+											 
 
 const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
@@ -244,7 +203,9 @@ signed main() {
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_DEBUG_OUTPUT);
-	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Makes sure the error happens on the same thread
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity,
 		GLsizei length, const GLchar* message, const void* userParam) {
 			fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
@@ -275,11 +236,26 @@ signed main() {
 			make_shared<Shader>("voxelizer.frag", GL_FRAGMENT_SHADER)
 	});
 
+
+	shared_ptr<ShaderProgram> collision_program = make_shared<ShaderProgram>
+		(vector<shared_ptr<Shader>>{
+			make_shared<Shader>("collision.comp", GL_COMPUTE_SHADER)
+	});
+
+
 	shared_ptr<ShaderProgram> voxel_visualizer_program = make_shared<ShaderProgram>
 		(vector<shared_ptr<Shader>>{
 		make_shared<Shader>("voxelvisualizer.vert", GL_VERTEX_SHADER),
 			make_shared<Shader>("voxelvisualizer.frag", GL_FRAGMENT_SHADER)
 	});
+
+
+	shared_ptr<ShaderProgram> aabb_visualizer_program = make_shared<ShaderProgram>
+		(vector<shared_ptr<Shader>>{
+		make_shared<Shader>("aabbvisualizer.vert", GL_VERTEX_SHADER),
+			make_shared<Shader>("aabbvisualizer.frag", GL_FRAGMENT_SHADER)
+	});
+
 
 
 
@@ -359,7 +335,7 @@ signed main() {
 	shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot.obj");
 	shared_ptr<Model> teapot = make_shared<Model>(teapot_raw->vertices, teapot_raw->vertex_size * 8 * 4, teapot_raw->vertex_size);
 	// [-.5,-.5,-.5] ~ [.5,.5,.5]
-	shared_ptr<Model> cube = make_shared<Model>(cube_vertices, sizeof(cube_vertices), 36);
+	shared_ptr<Model> cube = MeshBuilder::Cube();
 	int frame_counter = 0;
 	int frame_sample = 500;
 	float fps = 0;
@@ -420,196 +396,49 @@ signed main() {
 	dynamic_cube_map->depthFBO = depthFBO;
 	dynamic_cube_map->depthmap = depthmap;
 
-	shared_ptr<MeshBuilder> mesh_builder = make_shared<MeshBuilder>();
-	shared_ptr<Model> sphere_mesh = mesh_builder->buildSphere(10);
-	shared_ptr<Model> plane_mesh = mesh_builder->buildPlane(1,vec3(0,0,1),vec3(1,0,0),vec3(0.0f));
+	shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(10), texture_yellow);
+	shared_ptr<GameObject> moving_teapot = make_shared<GameObject>(teapot, texture_yellow);
+	moving_teapot->position = vec3(12, 10, 10);
+	moving_teapot->scale = vec3(0.5f);
+
+	moving_sphere->position = vec3(10, 10, 10);
 
 	vector<shared_ptr<GameObject>> entity_list;
-	vector<shared_ptr<Sphere>> spheres;
-	vector<shared_ptr<Plane>> floor;
-	vector<shared_ptr<Plane>> walls;
-	vector<shared_ptr<Plane>> boxes;
 	vector<shared_ptr<GameObject>> draw_list;
 
-	shared_ptr<Sphere> voxel_sphere = make_shared<Sphere>(0.5,vec3(0.0));
-	voxel_sphere->texture = texture_yellow;
-	voxel_sphere->position = vec3(12,10,10);
 
-	voxel_sphere->model = sphere_mesh;
+	auto resolve_collision = [&](shared_ptr<GameObject> a, shared_ptr<GameObject> b) {
+		a->voxelize(voxelizer_program);
+		b->voxelize(voxelizer_program);
 
+		glBindImageTexture(0, a->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
+		glBindImageTexture(1, b->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 
-	for (int i = 0; i < 21; ++i) {
-		for (int j = 0; j < 21; ++j) {
-			shared_ptr<Plane> plane = make_shared<Plane>(vec3(i,0,j));
-			plane->model = plane_mesh;
-			plane->texture = (i + j) % 2 ? texture_white : texture_blue;
-			floor.push_back(plane);
-		}
-	}
+		glBindImageTexture(2, a->collisionVisualizeTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 
-#pragma region prepareBox
-	vector<shared_ptr<Plane>> uni_box;
+		collision_program->use();
+		collision_program->setInt("voxelInfoA.dimx", a->voxel_info.dim_x);
+		collision_program->setInt("voxelInfoA.dimy", a->voxel_info.dim_y);
+		collision_program->setInt("voxelInfoA.dimz", a->voxel_info.dim_z);
 
-	auto p = make_shared<Plane>(vec3(0, 1, 1), vec3(1), vec3(pi / 2, 0, 0));
-	p->texture = warp_tape;
-	p->model = plane_mesh;
-	uni_box.push_back(p);
-	
-	p = make_shared<Plane>(vec3(1, 1, 0), vec3(1), vec3(0, 0, -pi / 2));
-	p->texture = warp_tape;
-	p->model = plane_mesh;
-	uni_box.push_back(p);
-	
-	p = make_shared<Plane>(vec3(0, 0, 0), vec3(1), vec3(0, 0, pi / 2));
-	p->texture = warp_tape;
-	p->model = plane_mesh;
-	uni_box.push_back(p);
-	
-	p = make_shared<Plane>(vec3(0, 0, 0), vec3(1), vec3(-pi / 2, 0, 0));
-	p->texture = warp_tape;
-	p->model = plane_mesh;
-	uni_box.push_back(p);
-	
-	p = make_shared<Plane>(vec3(0, 1, 0), vec3(1), vec3(0, 0, 0));
-	p->texture = warp_tape;
-	p->model = plane_mesh;
-	uni_box.push_back(p);
+		collision_program->setInt("voxelInfoB.dimx", b->voxel_info.dim_x);
+		collision_program->setInt("voxelInfoB.dimy", b->voxel_info.dim_y);
+		collision_program->setInt("voxelInfoB.dimz", b->voxel_info.dim_z);
 
-	p = make_shared<Plane>(vec3(1, 0, 0), vec3(1), vec3(0, 0, -pi));
-	p->texture = warp_tape;
-	p->model = plane_mesh;
-	uni_box.push_back(p);
-#pragma endregion
-	auto addbox = [&](vec3 pos, vec3 rot, vec3 scale) {
-		auto p = make_shared<Plane>(mul(vec3(0, 1, 1), scale) + pos, scale, vec3(pi / 2, 0, 0) + rot);
-		p->texture = warp_tape;
-		p->model = plane_mesh;
-		boxes.push_back(p);
+		collision_program->setInt("voxelInfoA.corner_x", a->voxel_info.corner_x);
+		collision_program->setInt("voxelInfoA.corner_y", a->voxel_info.corner_y);
+		collision_program->setInt("voxelInfoA.corner_z", a->voxel_info.corner_z);
 
-		p = make_shared<Plane>(mul(vec3(1, 1, 0), scale) + pos, scale, vec3(0, 0, -pi / 2) + rot);
-		p->texture = warp_tape;
-		p->model = plane_mesh;
-		boxes.push_back(p);
+		collision_program->setInt("voxelInfoB.corner_x", b->voxel_info.corner_x);
+		collision_program->setInt("voxelInfoB.corner_y", b->voxel_info.corner_y);
+		collision_program->setInt("voxelInfoB.corner_z", b->voxel_info.corner_z);
 
-		p = make_shared<Plane>(mul(vec3(0, 0, 0), scale) + pos, scale, vec3(0, 0, pi / 2) + rot);
-		p->texture = warp_tape;
-		p->model = plane_mesh;
-		boxes.push_back(p);
+		glDispatchCompute((a->voxel_info.dim_x + 7) / 8, (a->voxel_info.dim_y + 7) / 8, 1);
 
-		p = make_shared<Plane>(mul(vec3(0, 0, 0), scale) + pos, scale, vec3(-pi / 2, 0, 0) + rot);
-		p->texture = warp_tape;
-		p->model = plane_mesh;
-		boxes.push_back(p);
-
-		p = make_shared<Plane>(mul(vec3(0, 1, 0), scale) + pos, scale, vec3(0, 0, 0) + rot);
-		p->texture = warp_tape;
-		p->model = plane_mesh;
-		boxes.push_back(p);
-
-		p = make_shared<Plane>(mul(vec3(1, 0, 0), scale) + pos, scale, vec3(0, 0, -pi) + rot);
-		p->texture = warp_tape;
-		p->model = plane_mesh;
-		boxes.push_back(p);
-
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	};
-	addbox(vec3(10, 0, 10), vec3(0, 0, 0), vec3(3));
-	addbox(vec3(10, 10, 0), vec3(0, 0, 0), vec3(5));
-	addbox(vec3(20, 10, 0), vec3(0, 0, 0), vec3(8));
-
-#pragma region prepareWalls
-
-
-	auto plane = make_shared<Plane>(vec3(0,21,0), vec3(21) ,vec3(pi / 2,0,0));
-	plane->texture = texture_yellow;
-	plane->model = plane_mesh;
-	walls.push_back(plane);
-	plane = make_shared<Plane>(vec3(0, 21, 0), vec3(21), vec3(0, 0, -pi/2));
-	plane->texture = texture_green;
-	plane->model = plane_mesh;
-	walls.push_back(plane);
-	plane = make_shared<Plane>(vec3(21, 0, 0), vec3(21), vec3(0, 0, pi / 2));
-	plane->texture = texture_green;
-	plane->model = plane_mesh;
-	walls.push_back(plane);
-	plane = make_shared<Plane>(vec3(0, 0, 21), vec3(21), vec3(-pi/2, 0, 0));
-	plane->texture = texture_yellow;
-	plane->model = plane_mesh;
-	walls.push_back(plane);
-#pragma endregion
-
-	add_ball = [&](int ball_count) {
-		for (int i = 0; i < ball_count; ++i) {
-			auto tmp = make_shared<Sphere>(0.5, vec3(10, 10, 10));
-			tmp->model = sphere_mesh;
-			tmp->texture = texture_white;
-			tmp->velocity.x = random_float() - 0.5f;
-			tmp->velocity.y = random_float() - 0.5f;
-			tmp->velocity.z = random_float() - 0.5f;
-
-			tmp->position.x = 4 * (random_float() - 0.5f) + 10.f;
-			tmp->position.y = 4 * (random_float() - 0.5f) + 10.f;
-			tmp->position.z = 4 * (random_float() - 0.5f) + 10.f;
-
-			tmp->velocity *= 100 * ball_speed_amplifiler;
-			spheres.push_back(tmp);
-			entity_list.push_back(tmp);
-			draw_list.push_back(tmp);
-		}
-	};
-	auto resolve_collision = [&](auto &a, auto &b) {
-		if (a->type == b->type && a->type == SPHERE) {
-			auto A = std::static_pointer_cast<Sphere>(a);
-			auto B = std::static_pointer_cast<Sphere>(b);
-			auto w = A->position - B->position;
-			auto n = w / abs(w);
-			auto& va = A->velocity;
-			auto& vb = B->velocity;
-			// projected speed swap
-			if (abs(w) < A->radius + B->radius) {
-
-				auto atv = va - (va * n) * n; //tangent direction speed converse 
-				auto btv = vb - (vb * n) * n;
-				auto anv = va - atv;
-				auto bnv = vb - btv; //normal direction swapped (regarded as a 1-d collision)
-				if ((bnv - anv) * n > 0){ //seperating
-					return;
-				}
-
-				//swap the anv & bnv
-				va = bnv + atv;
-				vb = anv + btv;
-
-				//replusion 
-
-				//B->forces += n * 4;
-			}
-		}
-
-		if (a->type == SPHERE && b->type == PLANE) {
-			auto sphere = std::static_pointer_cast<Sphere>(a);
-			auto plane = std::static_pointer_cast<Plane>(b);
-			auto [u, v] = plane->transformedPlane();
-			auto n = uni(u ^ v);
-			auto d = (sphere->position - plane->position) * n;
-			if (d > sphere->radius) return;
-			auto p = (sphere->position - plane->position) - (d * n);
-			//suppose u perpendicular to v
-			auto up = (p * uni(u)) / abs(u);
-			auto vp = (p * uni(v)) / abs(v);
-
-			//Collided
-			if (0 <= up && up <= 1 && 0 <= vp && vp <= 1) {
-				a->texture = b->texture;
-				auto vel = a->velocity;
-				//a->velocity = vel - 2 * (n * vel) * n; // reflect
-				a->forces += -2 * (n * vel) * n;
-			}
-		}
-	};
-	
 	auto collision_solve_regular = [&]() {
 		for (auto& a : entity_list) {
-			if (a->type == PLANE) continue;
 			vector<shared_ptr<GameObject>> hitlist;
 
 			auto& bb = a->bounding_box;
@@ -622,35 +451,41 @@ signed main() {
 			int mnz = bb->z.min / regular_div;
 			int mxz = bb->z.max / regular_div;
 
-			for (int x = mnx; x <= mxx; ++x) {
-				for (int y = mny; y <= mxy; ++y) {
-					for (int z = mnz; z <= mxz; ++z) {
-						if (x >= REGULAR_DIVISION || x < 0) continue;
-						if (y >= REGULAR_DIVISION || y < 0) continue;
-						if (z >= REGULAR_DIVISION || z < 0) continue;
-
-						hitlist.insert(hitlist.end(), regular_grid[x][y][z].begin(), regular_grid[x][y][z].end());
-					}
-				}
-			}
-			std::sort(hitlist.begin(), hitlist.end());
-			hitlist.erase(std::unique(hitlist.begin(), hitlist.end()),hitlist.end());
-			for (auto& b : hitlist) {
-				if (a == b) continue;
-				if (a->type == SPHERE && b->type == SPHERE && (a > b)) continue;
-				// a react to b
-				resolve_collision(a, b);
-			}
-		}
-	};
+	 		for (int x = mnx; x <= mxx; ++x) {
+	 			for (int y = mny; y <= mxy; ++y) {
+	 				for (int z = mnz; z <= mxz; ++z) {
+	 					if (x >= REGULAR_DIVISION || x < 0) continue;
+	 					if (y >= REGULAR_DIVISION || y < 0) continue;
+	 					if (z >= REGULAR_DIVISION || z < 0) continue;
+						for (auto& b : regular_grid[x][y][z]) {
+							if (a == b) continue; // hit self
+							if (a > b) continue; // resolved
+							if(a->bounding_box->hit(*b->bounding_box)){
+								hitlist.push_back(b);
+								//fast check by using AABB
+							}
+						}
+	 				}
+	 			}
+	 		}
+	 		std::sort(hitlist.begin(), hitlist.end());
+	 		hitlist.erase(std::unique(hitlist.begin(), hitlist.end()),hitlist.end());
+	 		for (auto& b : hitlist) {
+				// futher check by using voxelization result
+	 			resolve_collision(a, b);
+	 		}
+	 	}
+	 };
 
 	const float dt = 0.001;
 	auto update_positions = [&]() {
-	for (auto& c : regular_grid)
-		for (auto& b : c)
-			for (auto& d : b) {
-				d.clear();
-			}
+
+		for (auto& c : regular_grid)
+			for (auto& b : c)
+				for (auto& d : b) {
+					d.clear();
+				}
+
 		for (auto& a : entity_list) {
 			//a->forces += vec3(0, -1, 0);
 			auto dv = uni(a->velocity + a->forces) * abs(a->velocity); // conservation of momentum
@@ -686,18 +521,8 @@ signed main() {
 			}
 		}
 	};
-	for (auto& a : floor) entity_list.push_back(a);
-	for (auto& a : spheres) entity_list.push_back(a);
-	for (auto& a : walls) entity_list.push_back(a);
-
-	for (auto& a : floor) draw_list.push_back(a);
-	for (auto& a : spheres) draw_list.push_back(a);
-	for (auto& a : walls) draw_list.push_back(a);
-
-	for (auto& a : boxes) entity_list.push_back(a);
-	for (auto& a : boxes) draw_list.push_back(a);
-
-
+	entity_list.push_back(moving_sphere);
+	entity_list.push_back(moving_teapot);
 	shader_program->use();
 	shader_program->setVec3("solid_color",vec3(1));
 
@@ -755,6 +580,27 @@ signed main() {
 			texture_blue->bind();
 			
 			for (auto& a : draw_list) a->draw(shader_program);
+			
+			moving_sphere->draw(shader_program);
+			moving_teapot->draw(shader_program);
+
+			moving_sphere->update_aabb();
+			
+			//moving_sphere->voxelize(voxelizer_program);
+			glViewport(0, 0, window_width, window_height);
+			glDisable(GL_DEPTH_TEST);
+			//VoxelHelper::draw_voxel(moving_sphere, voxel_visualizer_program, camera, cube);
+			VoxelHelper::draw_voxel_collision(moving_sphere, voxel_visualizer_program, camera, cube);
+
+			moving_teapot->update_aabb();
+			//VoxelHelper::draw_aabb(*moving_teapot->bounding_box, aabb_visualizer_program, camera, cube);
+			//voxel_sphere->update_aabb();
+			//voxel_sphere->draw(shader_program);
+			//moving_teapot->voxelize(voxelizer_program);
+			glViewport(0, 0, window_width, window_height);
+			//VoxelHelper::draw_voxel(moving_teapot, voxel_visualizer_program, camera, cube);
+			VoxelHelper::draw_voxel_collision(moving_teapot, voxel_visualizer_program,camera, cube);
+			glEnable(GL_DEPTH_TEST);
 		};
 
 
@@ -792,17 +638,6 @@ signed main() {
 			teapot->draw();
 		
 			shader_program->use();
-
-
-			voxel_sphere->update_aabb();
-			//voxel_sphere->draw(shader_program);
-			voxel_sphere->voxelize(0.05, voxelizer_program);
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-			glViewport(0, 0, window_width, window_height);
-			voxel_visualizer_program->use();
-			voxel_visualizer_program->setMat4("proj", camera->proj);
-			voxel_visualizer_program->setMat4("view", camera->view);
-			voxel_sphere->draw_voxel(voxel_visualizer_program, cube);
 
 		};
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);

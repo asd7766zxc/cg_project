@@ -1,0 +1,72 @@
+#version 430 core
+
+// local workgroup with 8x8x1 
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// run a O(voxelsizeof(A)) algorithm to check the voxel space's intersection
+// we need transform the A space's voxels to B space 
+struct VoxelInfo{
+	int dimx;
+	int dimy;
+	int dimz;
+
+	// use world space as voxel space
+	// voxelspaces' left bottom corner
+	int corner_x;
+	int corner_y;
+	int corner_z;
+};
+
+uniform VoxelInfo voxelInfoA;
+uniform VoxelInfo voxelInfoB;
+
+uniform int voxel_size_p;
+uniform int voxel_size_q;
+
+layout(binding = 0, r32ui) uniform readonly uimage3D voxelA;
+layout(binding = 1, r32ui) uniform readonly uimage3D voxelB;
+
+// write result to visualize
+layout(binding = 2, r32ui) uniform uimage3D Collisions;
+
+void main(){
+	ivec3 voxelCoordA = ivec3(gl_GlobalInvocationID.xy, 0);
+	if(voxelCoordA.x >= voxelInfoA.dimx || voxelCoordA.y >= voxelInfoA.dimy) return;
+
+	// for each compute shader invocation
+	// we check a strip of zs'
+
+	// transform the A space's voxels to B space
+
+	for(int zi = 0; zi < (voxelInfoA.dimz + 31) / 32; ++zi){
+		uint dataA = imageLoad(voxelA, ivec3(voxelCoordA.xy, zi)).r;
+		//TODO: align the bitstring with offset of 32
+		// to achive the collision checking in one and operation
+		for(int zr = 0; zr < 32; ++zr){
+			int z = zi * 32 + zr;
+			if(z >= voxelInfoA.dimz) break;
+			if(((dataA >> zr) & 1u) == 0u) continue;
+			
+			// transform to B space
+
+			ivec3 coord = ivec3(voxelCoordA.xy, z) +\
+			ivec3(voxelInfoA.corner_x, voxelInfoA.corner_y, voxelInfoA.corner_z)-\
+			ivec3(voxelInfoB.corner_x, voxelInfoB.corner_y, voxelInfoB.corner_z);
+
+			if(coord.x < 0 || coord.y < 0 || coord.z < 0 ||\
+			coord.x >= voxelInfoB.dimx || coord.y >= voxelInfoB.dimy || coord.z >= voxelInfoB.dimz) continue;
+
+			ivec3 coordi = ivec3(coord.xy, coord.z / 32);
+			// check collision
+			uint dataB = imageLoad(voxelB, coordi).r;
+			int bzr = coord.z % 32;
+
+			if(((dataB >> bzr) & 1u) == 0u) continue;
+
+			//collide...
+
+			imageAtomicOr(Collisions, ivec3(voxelCoordA.xy, zi), 1u << zr);
+		}
+	}
+
+}

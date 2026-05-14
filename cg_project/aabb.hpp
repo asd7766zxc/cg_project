@@ -6,7 +6,7 @@ class GameObject; //forward declaration
 class aabb {
 public:
 	interval x, y, z;
-	shared_ptr<GameObject> ref_obj;
+	GameObject* ref_obj = nullptr;
 
 	aabb() {}
 	aabb(interval x, interval y, interval z) : x(x), y(y), z(z) {}
@@ -21,7 +21,11 @@ public:
 	bool hit(const aabb& other) const {
 		return x.intersect(other.x) && y.intersect(other.y) && z.intersect(other.z);
 	}
-
+	void reset() {
+		x = interval();
+		y = interval();
+		z = interval();
+	}
 	int longestAxis() const {
 		float x_size = x.size();
 		float y_size = y.size();

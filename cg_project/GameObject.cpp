@@ -1,18 +1,39 @@
 #include "GameObject.hpp"
-
-void GameObject::voxelize(float voxel_size, shared_ptr<ShaderProgram> voxelizer) {
+const BYTE empty_voxel_grid[512 * 512 * 512] = { 0 };
+void GameObject::voxelize(shared_ptr<ShaderProgram> voxelizer) {
 	//glDisable(GL_CULL_FACE);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	// perform orthognal projection
 	// bounding_box -> [-1,1]^2 x [0,z]
+	
+	//the whole voxel space need to be aligned with world's regular grid;
+
+	//so l, b, n need to be k * voxel_size, (where k is some integer).
+	// l  == p / q * k
+	// l * q = p * k
+	// k == l * q / p
+	//TODO: i will fix the roundoff in this equation after major functions are done, now just make sure the voxelizer works
+	auto align_with_world = [&](float v) {
+		int k = int(v * voxel_size_q / voxel_size_p);
+		return float(k) * voxel_size_p / voxel_size_q;
+	};
 	float l = bounding_box->x.min;
+	voxel_info.corner_x = int(l * voxel_size_q / voxel_size_p);
+	l = align_with_world(l);
+	
 	float r = bounding_box->x.max;
 
 	float b = bounding_box->y.min;
+	voxel_info.corner_y = int(b * voxel_size_q / voxel_size_p);
+	b = align_with_world(b);
+	
 	float t = bounding_box->y.max;
 
 	float n = bounding_box->z.min;
+	voxel_info.corner_z = int(n * voxel_size_q / voxel_size_p);
+	n = align_with_world(n);
+
 	float f = bounding_box->z.max;
 
 	//calculate voxel space dimension
@@ -36,7 +57,7 @@ void GameObject::voxelize(float voxel_size, shared_ptr<ShaderProgram> voxelizer)
 	voxelizer->setInt("zdepth", z_depth);
 
 	glBindTexture(GL_TEXTURE_3D, voxelTexture);
-	glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, x_dimen, y_dimen, z_depth, GL_RED_INTEGER, GL_UNSIGNED_BYTE, empty_voxel_grid);
+	glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, x_dimen, y_dimen, (z_depth + 31) / 32, GL_RED_INTEGER, GL_UNSIGNED_BYTE, empty_voxel_grid);
 
 	//bind to image unit 0
 	glBindImageTexture(0, voxelTexture,0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
@@ -48,23 +69,8 @@ void GameObject::voxelize(float voxel_size, shared_ptr<ShaderProgram> voxelizer)
 
 	//glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
-}
 
-void GameObject::draw_voxel(shared_ptr<ShaderProgram> visualizer, shared_ptr<Model> cube_mesh) {
-	//return;
-	glBindTexture(GL_TEXTURE_3D, voxelTexture);
-	glBindImageTexture(0, voxelTexture, 0, GL_TRUE, 0, GL_READ_ONLY, GL_R32UI);
-	visualizer->use();
-	glBindVertexArray(cube_mesh->VAO);
-	int voxel_count = voxel_info.dim_x * voxel_info.dim_y * voxel_info.dim_z;
-	visualizer->setInt("xdim", voxel_info.dim_x);
-	visualizer->setInt("ydim", voxel_info.dim_y);
-	visualizer->setInt("zdim", voxel_info.dim_z);
-	visualizer->setVec3("box_dimension",voxel_info.box);
-	visualizer->setFloat("voxel_size",voxel_info.voxel_size);
-	visualizer->setVec3("box_corner_pos", voxel_info.box_corner);
-
-
-	glDrawArraysInstanced(GL_TRIANGLES, 0, cube_mesh->vertex_count, voxel_count);
-	glBindVertexArray(0);
+	// the setting of collision visualize texture is the same as voxel texture
+	glBindTexture(GL_TEXTURE_3D, collisionVisualizeTexture);
+	glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, x_dimen, y_dimen, (z_depth + 31) / 32, GL_RED_INTEGER, GL_UNSIGNED_BYTE, empty_voxel_grid);
 }

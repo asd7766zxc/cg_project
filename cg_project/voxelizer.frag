@@ -22,7 +22,6 @@ void main(){
 	//imageAtomicOr(voxelGrid, ivec3(window_xy,z_chunk),(1u << z_subindex));
 	// solid binary voxelization 
 	// xor toward -z
-	return;
 	for(int zi = z_chunk - 1; zi >= 0; --zi){
 		imageAtomicXor(voxelGrid, ivec3(window_xy.xy,zi),0xFFFFFFFFu); //flip all bit behind (<= current z) 
 	}

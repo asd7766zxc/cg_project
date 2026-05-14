@@ -21,7 +21,16 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(sizeof(GLfloat) * 6));
 	glEnableVertexAttribArray(2);
+	for(int i = 0; i < vertex_count; ++i) {
+		float x = vertices[i * 8 + 0];
+		float y = vertices[i * 8 + 1];
+		float z = vertices[i * 8 + 2];
 
+		bounding_box.x.adjust(x);
+		bounding_box.y.adjust(y);
+		bounding_box.z.adjust(z);
+		// make mesh aabb
+	}
 	glBindVertexArray(0);
 }
 void Model::draw() {

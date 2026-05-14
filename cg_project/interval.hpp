@@ -10,6 +10,10 @@ public:
 		min = std::min(a.min, b.min);
 		max = std::max(a.max, b.max);
 	}
+	const float& get(int i) const {
+		if (i == 0) return min;
+		return max;
+	}
 	void adjust(float v) {
 		max = std::max(max, v);
 		min = std::min(min, v);

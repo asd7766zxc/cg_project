@@ -153,6 +153,7 @@
     <ClCompile Include="ShaderProgram.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="VertexObject.cpp" />
+    <ClCompile Include="VoxelHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aabb.hpp" />
@@ -173,8 +174,12 @@
     <ClInclude Include="Texture.hpp" />
     <ClInclude Include="Vec.hpp" />
     <ClInclude Include="VertexObject.hpp" />
+    <ClInclude Include="VoxelHelper.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="aabbvisualizer.frag" />
+    <None Include="aabbvisualizer.vert" />
+    <None Include="collision.comp" />
     <None Include="env.frag" />
     <None Include="env.geom" />
     <None Include="env.vert" />
