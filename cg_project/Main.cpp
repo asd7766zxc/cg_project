@@ -25,8 +25,10 @@
 #include "MeshBuilder.hpp"
 #include "GameObject.hpp"
 #include <memory>
-#include "VoxelHelper.hpp"
 #include "Visualization.hpp"
+#include "Voxelizer.hpp"
+#include "CollisionDetector.hpp"
+#include "PhysicsSolver.hpp"
 
 shared_ptr<Camera> camera;
 
@@ -42,10 +44,14 @@ struct PointLight {
 	bool enable;
 };
 vector<PointLight> point_lights;
+bool pause_world = false;
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_E && action == GLFW_PRESS){
 		camera_control = !camera_control;
 		glfwSetInputMode(window, GLFW_CURSOR, camera_control ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+	}
+	if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+		pause_world = !pause_world;
 	}
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		exit(0);
@@ -81,7 +87,6 @@ void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 	if(camera_control)
 	camera->mouseMove(dx, -dy);
 }
-
 
 bool showing_depth_map = 0;
 bool enable_acc_structure = 1;
@@ -124,33 +129,13 @@ void render_ui(float fps) {
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
-											 
-
 const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-
 const unsigned int ENV_WIDTH = 1024, ENV_HEIGHT = 1024;
 int window_width = WINDOW_WIDTH, window_height = WINDOW_HEIGHT;
 
-const unsigned int REGULAR_DIVISION = 8;
-const int regular_div = 21 / (REGULAR_DIVISION - 1);
-vector<shared_ptr<GameObject>> regular_grid[REGULAR_DIVISION + 1][REGULAR_DIVISION + 1][REGULAR_DIVISION + 1];
 float d_width = window_width / 2.0;
 float d_height = window_height / 2.0;
-struct collision_attribute {
-	int point_x = 0;
-	int point_y = 0;
-	int point_z = 0;
 
-	int normal_x = 0;
-	int normal_y = 0;
-	int normal_z = 0;
-
-	int voxel_count = 0;
-};
-struct collision_distance {
-	int max_penetration = 0;
-	int min_penetration = 0;
-};
 void onResize(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 	if (split_window)
@@ -246,50 +231,6 @@ signed main() {
 		make_shared<Shader>("refract.frag", GL_FRAGMENT_SHADER)
 	});
 
-	shared_ptr<ShaderProgram> voxelizer_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-		make_shared<Shader>("voxelizer.vert", GL_VERTEX_SHADER),
-			make_shared<Shader>("voxelizer.frag", GL_FRAGMENT_SHADER)
-	});
-
-
-	shared_ptr<ShaderProgram> collision_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-			make_shared<Shader>("collision.comp", GL_COMPUTE_SHADER)
-	});
-
-	shared_ptr<ShaderProgram> collision_attribute_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-		make_shared<Shader>("collision_attribute.comp", GL_COMPUTE_SHADER)
-	});
-
-	shared_ptr<ShaderProgram> center_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-		make_shared<Shader>("center_calculator.comp", GL_COMPUTE_SHADER)
-	});
-
-
-	shared_ptr<ShaderProgram> voxel_visualizer_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-		make_shared<Shader>("voxelvisualizer.vert", GL_VERTEX_SHADER),
-			make_shared<Shader>("voxelvisualizer.frag", GL_FRAGMENT_SHADER)
-	});
-
-
-	shared_ptr<ShaderProgram> aabb_visualizer_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-		make_shared<Shader>("aabbvisualizer.vert", GL_VERTEX_SHADER),
-			make_shared<Shader>("aabbvisualizer.frag", GL_FRAGMENT_SHADER)
-	});
-
-	shared_ptr<ShaderProgram> solid_color_program = make_shared<ShaderProgram>
-		(vector<shared_ptr<Shader>>{
-		make_shared<Shader>("solidcolor.vert", GL_VERTEX_SHADER),
-			make_shared<Shader>("solidcolor.frag", GL_FRAGMENT_SHADER)
-	});
-
-
-
 	shared_ptr<Texture> texture_white = make_shared<Texture>();
 	shared_ptr<Texture> texture_blue = make_shared<Texture>(0xff0000);
 
@@ -301,6 +242,9 @@ signed main() {
 	shared_ptr<Texture> wood_floor = make_shared<Texture>("wood.png");
 
 	shared_ptr<Texture> engraver = make_shared<Texture>(10, 10);
+
+	Visualization visualizer(camera);
+	shared_ptr<Voxelizer> voxelizer = make_shared<Voxelizer>();
 
 	// Setup lights
 	point_lights.push_back({
@@ -414,10 +358,6 @@ signed main() {
 	shader_program->setFloat("far_plane", light_camera->farp);
 
 	auto updateProgram = [&]() {
-		solid_color_program->use();
-		solid_color_program->setMat4("view", camera->view);
-		solid_color_program->setMat4("proj", camera->proj);
-
 		shader_program->use();
 		shader_program->setMat4("view", camera->view);
 		shader_program->setMat4("proj", camera->proj);
@@ -432,234 +372,50 @@ signed main() {
 	dynamic_cube_map->depthFBO = depthFBO;
 	dynamic_cube_map->depthmap = depthmap;
 
+
 	shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(100), texture_yellow);
 	shared_ptr<GameObject> moving_teapot = make_shared<GameObject>(teapot, texture_yellow);
+	shared_ptr<GameObject> big_water_tank = make_shared<GameObject>(cube, texture_white);
+
+
+	big_water_tank->penetrable = true;
+	big_water_tank->mass = -1;
+	big_water_tank->scale = vec3(10, 5, 10);
+	big_water_tank->position = vec3(10,6,10);
 	moving_teapot->position = vec3(12, 10, 10);
 	moving_teapot->scale = vec3(0.5f);
-
+	//moving_teapot->mass = 0.2;
+	//moving_teapot->rotation = vec3(0, 0, 1);
 	moving_sphere->position = vec3(12.5, 9.5, 10);
+	//moving_sphere->rotation = vec3(0, 0, 1);
 
-	vector<shared_ptr<GameObject>> entity_list;
-	vector<shared_ptr<GameObject>> draw_list;
-
-	auto rod_mesh = MeshBuilder::Rod(10);
-	auto cone_mesh = MeshBuilder::Cone(10);
-	auto sphere_mesh = MeshBuilder::Sphere(100);
-	auto draw_vector = [&](vec3 direction, vec3 origin, vec4 color,float scale = 1.0f) {
-		Visualization::draw_vector(solid_color_program, rod_mesh, cone_mesh, direction, origin, color, scale);
-	};
-	auto draw_point = [&](vec3 position, vec4 color,float scale = 1.0f) {
-		Visualization::draw_point(solid_color_program, sphere_mesh, position, color, scale);
-	};
-	GLuint ssbo[3];
-	glGenBuffers(1, &ssbo[0]);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[0]);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[0]);
-
-	glGenBuffers(1, &ssbo[1]);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo[1]);
-
-	glGenBuffers(1, &ssbo[2]);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo[2]);
-
-	collision_attribute zero;
-	collision_distance zero1;
-	vec3 collision_p;
-	vec3 contact_normal;
-	vec3 gravity_center_A;
-
-
-	moving_teapot->voxelize(voxelizer_program); 
-	glBindImageTexture(0, moving_teapot->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
-	moving_teapot->calculate_gravitycenter(center_program);
-
-	moving_sphere->voxelize(voxelizer_program);
-	glBindImageTexture(0, moving_sphere->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
-	moving_sphere->calculate_gravitycenter(center_program);
-
-	auto resolve_collision = [&](shared_ptr<GameObject> a, shared_ptr<GameObject> b) {
-		a->voxelize(voxelizer_program);
-		b->voxelize(voxelizer_program);
-
-		glBindImageTexture(0, a->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
-		glBindImageTexture(1, b->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
-
-		glBindImageTexture(2, a->collisionVisualizeTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
-
-		collision_program->use();
-		collision_program->setInt("voxelInfoA.dimx", a->voxel_info.dim_x);
-		collision_program->setInt("voxelInfoA.dimy", a->voxel_info.dim_y);
-		collision_program->setInt("voxelInfoA.dimz", a->voxel_info.dim_z);
-
-		collision_program->setInt("voxelInfoB.dimx", b->voxel_info.dim_x);
-		collision_program->setInt("voxelInfoB.dimy", b->voxel_info.dim_y);
-		collision_program->setInt("voxelInfoB.dimz", b->voxel_info.dim_z);
-
-		collision_program->setInt("voxelInfoA.corner_x", a->voxel_info.corner_x);
-		collision_program->setInt("voxelInfoA.corner_y", a->voxel_info.corner_y);
-		collision_program->setInt("voxelInfoA.corner_z", a->voxel_info.corner_z);
-
-		collision_program->setInt("voxelInfoB.corner_x", b->voxel_info.corner_x);
-		collision_program->setInt("voxelInfoB.corner_y", b->voxel_info.corner_y);
-		collision_program->setInt("voxelInfoB.corner_z", b->voxel_info.corner_z);
-		
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[0]);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(collision_attribute), &zero, GL_DYNAMIC_READ);
-
-		glDispatchCompute((a->voxel_info.dim_x + 7) / 8, (a->voxel_info.dim_y + 7) / 8, 1);
-
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
-
-		collision_attribute* attributes = (collision_attribute*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
-
-		if (attributes->voxel_count == 0) return;
-		// integer points are corners need to move to center
-		collision_p = vec3(attributes->point_x, attributes->point_y, attributes->point_z) * (1.0 / attributes->voxel_count) * a->voxel_size + a->voxel_info.box_corner + vec3(a->voxel_size / 2.0);
-		contact_normal = vec3(attributes->normal_x, attributes->normal_y, attributes->normal_z);
-		bool inverse_normal = false;
-		if ((a->gravity_center - collision_p) * uni(contact_normal) > 0) {
-			contact_normal *= -1;
-			attributes->normal_x *= -1;
-			attributes->normal_y *= -1;
-			attributes->normal_z *= -1;
-		}
-		//std::cout << attributes->normal_x;
-		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(collision_distance), &zero1, GL_DYNAMIC_READ);
-
-		collision_attribute_program->use();
-		collision_attribute_program->setInt("voxelInfoA.dimx", a->voxel_info.dim_x);
-		collision_attribute_program->setInt("voxelInfoA.dimy", a->voxel_info.dim_y);
-		collision_attribute_program->setInt("voxelInfoA.dimz", a->voxel_info.dim_z);
-
-		collision_attribute_program->setInt("voxelInfoB.dimx", b->voxel_info.dim_x);
-		collision_attribute_program->setInt("voxelInfoB.dimy", b->voxel_info.dim_y);
-		collision_attribute_program->setInt("voxelInfoB.dimz", b->voxel_info.dim_z);
-
-		collision_attribute_program->setInt("voxelInfoA.corner_x", a->voxel_info.corner_x);
-		collision_attribute_program->setInt("voxelInfoA.corner_y", a->voxel_info.corner_y);
-		collision_attribute_program->setInt("voxelInfoA.corner_z", a->voxel_info.corner_z);
-
-		collision_attribute_program->setInt("voxelInfoB.corner_x", b->voxel_info.corner_x);
-		collision_attribute_program->setInt("voxelInfoB.corner_y", b->voxel_info.corner_y);
-		collision_attribute_program->setInt("voxelInfoB.corner_z", b->voxel_info.corner_z);
-
-		glDispatchCompute((a->voxel_info.dim_x + 7) / 8, (a->voxel_info.dim_y + 7) / 8, 1);
-
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
-
-		collision_distance* distances = (collision_distance*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-
-		float l = abs(contact_normal);
-
-		float coef = a->voxel_info.voxel_size * (1.0 / l) * (1.0 / attributes->voxel_count);
-
-		float real_max_penetration = coef * distances->max_penetration;
-		float real_min_penetration = coef * distances->min_penetration;
-		vec3 min_contact_normal = uni(contact_normal) * real_min_penetration;
-		//collision_p += min_contact_normal;
-		float penetration = real_max_penetration - real_min_penetration;
-		contact_normal = uni(contact_normal) * penetration;
+	PhysicsSolver physic_solver(voxelizer);
 	
-		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-		b->position += contact_normal;
-
-	};
-	auto collision_solve_regular = [&]() {
-		for (auto& a : entity_list) {
-			vector<shared_ptr<GameObject>> hitlist;
-
-			auto& bb = a->bounding_box;
-			int mnx = bb->x.min / regular_div;
-			int mxx = bb->x.max / regular_div;
-					
-			int mny = bb->y.min / regular_div;
-			int mxy = bb->y.max / regular_div;
-						
-			int mnz = bb->z.min / regular_div;
-			int mxz = bb->z.max / regular_div;
-
-	 		for (int x = mnx; x <= mxx; ++x) {
-	 			for (int y = mny; y <= mxy; ++y) {
-	 				for (int z = mnz; z <= mxz; ++z) {
-	 					if (x >= REGULAR_DIVISION || x < 0) continue;
-	 					if (y >= REGULAR_DIVISION || y < 0) continue;
-	 					if (z >= REGULAR_DIVISION || z < 0) continue;
-						for (auto& b : regular_grid[x][y][z]) {
-							if (a == b) continue; // hit self
-							if (a > b) continue; // resolved
-							if(a->bounding_box->hit(*b->bounding_box)){
-								hitlist.push_back(b);
-								//fast check by using AABB
-							}
-						}
-	 				}
-	 			}
-	 		}
-	 		std::sort(hitlist.begin(), hitlist.end());
-	 		hitlist.erase(std::unique(hitlist.begin(), hitlist.end()),hitlist.end());
-	 		for (auto& b : hitlist) {
-				// futher check by using voxelization result
-	 			resolve_collision(a, b);
-	 		}
-	 	}
-	 };
-
-	const float dt = 0.001;
-	auto update_positions = [&]() {
-
-		for (auto& c : regular_grid)
-			for (auto& b : c)
-				for (auto& d : b) {
-					d.clear();
-				}
-
-		for (auto& a : entity_list) {
-			//a->forces += vec3(0, -1, 0);
-			auto dv = uni(a->velocity + a->forces) * abs(a->velocity); // conservation of momentum
-			//auto dv = a->velocity + a->forces;
-			if (abs(a->velocity + a->forces) < 1e-4) {
-				dv = 0.0f;
-			}
-			a->velocity = dv;
-			a->position += dv * dt;
-			a->forces = vec3(0.0);
-			a->update_aabb();
-			
-			auto& bb = a->bounding_box;
-			int mnx = bb->x.min / regular_div;
-			int mxx = bb->x.max / regular_div;
-						
-			int mny = bb->y.min / regular_div;
-			int mxy = bb->y.max / regular_div;
-						
-			int mnz = bb->z.min / regular_div;
-			int mxz = bb->z.max / regular_div;
-
-			for (int x = mnx; x <= mxx; ++x) {
-				for (int y = mny; y <= mxy; ++y) {
-					for (int z = mnz; z <= mxz; ++z) {
-						if (x >= REGULAR_DIVISION || x < 0) continue;
-						if (y >= REGULAR_DIVISION || y < 0) continue;
-						if (z >= REGULAR_DIVISION || z < 0) continue;
-
-						regular_grid[x][y][z].push_back(a);
-					}
-				}
+	physic_solver.add_entity(moving_sphere);
+	physic_solver.add_entity(moving_teapot);
+	physic_solver.add_entity(big_water_tank);
+	/*for (int dx = -1; dx <= 1; ++dx) {
+		for (int dy = -1; dy <= 1; ++dy) {
+			if (dx == 0 || dy == 0) {
+				if (dx == 0 && dy == 0) continue;
+				shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
+				wallN->mass = -1;
+				wallN->scale = vec3(10,7,10);
+				wallN->position = big_water_tank->position + 10 * vec3(dx,0,dy) + 0.2 * vec3(dx, 0, dy);
+				physic_solver.add_entity(wallN);
 			}
 		}
-	};
-	entity_list.push_back(moving_sphere);
-	entity_list.push_back(moving_teapot);
+	}*/
+	shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
+	wallN->mass = -1;
+	wallN->scale = vec3(10, 4.8, 10);
+	wallN->position = big_water_tank->position - 5 * vec3(0, 1, 0);
+	physic_solver.add_entity(wallN);
+
+	const float dt = 1/60.0;
+
 	shader_program->use();
 	shader_program->setVec3("solid_color",vec3(1));
-
 	while (!glfwWindowShouldClose(window)) {
 #pragma region fpsCounter
 		frame_counter++;
@@ -674,9 +430,8 @@ signed main() {
 		delta_stamp = glfwGetTime();
 		updateWorld(window,delta);
 
-		update_positions();
-		collision_solve_regular();
-		
+		if(!pause_world)
+		physic_solver.update(dt);
 
 		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
@@ -713,41 +468,20 @@ signed main() {
 			glActiveTexture(GL_TEXTURE0);
 			texture_blue->bind();
 			
-			for (auto& a : draw_list) a->draw(shader_program);
-
-		
-			
-			moving_sphere->draw(shader_program);
-
-			moving_teapot->draw(shader_program);
-
-			moving_sphere->update_aabb();
-			
-			//moving_sphere->voxelize(voxelizer_program);
+			for (auto& a : physic_solver.entity_list) {
+				if (a->penetrable) continue;
+				a->draw(shader_program);
+			}
 			glViewport(0, 0, window_width, window_height);
-			//VoxelHelper::draw_voxel(moving_sphere, voxel_visualizer_program, camera, cube);
-			VoxelHelper::draw_voxel_collision(moving_sphere, voxel_visualizer_program, camera, cube);
-
-			moving_teapot->update_aabb();
-			//VoxelHelper::draw_aabb(*moving_teapot->bounding_box, aabb_visualizer_program, camera, cube);
-			//voxel_sphere->update_aabb();
-			//voxel_sphere->draw(shader_program);
-			//moving_teapot->voxelize(voxelizer_program);
-			glViewport(0, 0, window_width, window_height);
-			//VoxelHelper::draw_voxel(moving_teapot, voxel_visualizer_program, camera, cube);
-			VoxelHelper::draw_voxel_collision(moving_teapot, voxel_visualizer_program,camera, cube);
-
-
-
-			draw_vector(contact_normal, collision_p, vec4(0, 0, 1, 1),0.2);
-
-			//draw_vector(contact_normal, collision_p, vec4(0, 1, 1, 1), 0.2);
-
-			//draw_vector(contact_normal, collision_p, vec4(1, 0, 1, 1), 0.2);
-
-			draw_point(collision_p, { 0,1,0,1 });
-			draw_point(moving_teapot->gravity_center, { 0,1,0,1 });
-			draw_point(moving_sphere->gravity_center, { 0,1,0,1 });
+			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel(a);
+			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel_collision(a);
+			//for (auto& a : physic_solver.entity_list) visualizer.draw_aabb(*(a->bounding_box));
+			for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
+			for (auto& a : physic_solver.collision_detector->collisions) {
+				if (a.inwater) continue;
+				visualizer.draw_point(a.point, { 1,1,0,1 });
+				visualizer.draw_vector(a.normal* a.penetration, a.point, { 0,0,1,1 });
+			}
 		};
 
 

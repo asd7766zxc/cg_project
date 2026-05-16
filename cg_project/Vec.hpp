@@ -151,7 +151,58 @@ public:
 	}
 };
 
+//quaternion
+class quat {
+public:
+	float w = 0, i = 0, j = 0, k = 0;
 
+	quat(){}
+	quat(float w,vec3 v) : w(w), i(v.x), j(v.y), k(v.z) {}
+	quat(float w,float i, float j,float k) : w(w),i(i),j(j),k(k){}
+	quat(float v) : w(v), i(v), j(v), k(v) {}
+	quat operator * (float a) const { return quat(w * a, i * a, j * a, k * a); }
+	quat operator / (float a) const { return quat(w / a, i / a, j / a, k / a); }
+	quat operator - (quat a) const { return quat(w - a.w, i - a.i, j - a.j, k - a.k); }
+	quat operator + (quat a) const { return quat(w + a.w, i + a.i, j + a.j, k + a.k); }
+	vec3 getVec() const {
+		return vec3(i, j, k);
+	}
+	friend quat operator * (quat a,quat b) {
+		float w1 = a.w, w2 = b.w;
+		vec3 v1 = a.getVec();
+		vec3 v2 = b.getVec();
+		return quat(w1 * w2 - v1 * v2,w1 * v2 + w2 * v1 + (v1 ^ v2));
+	};
+	//update the orientation based on (angular velocity) * dt (odt)
+	quat rotate(vec3 odt) {
+		quat q = quat(0, odt);
+		return 0.5 * (q * (*this)) + (*this);
+	}
+	//the displacement of orientation
+	friend quat delta_rotation(quat a, vec3 odt) {
+		quat q = quat(0, odt);
+		return 0.5 * (q * a);
+	}
+	void operator += (quat a) { w += a.w, i += a.i, j += a.j, k += a.k; }
+	void operator -= (quat a) { w -= a.w, i -= a.i, j -= a.j, k -= a.k; }
+	void operator *= (float a) { w *= a, i *= a, j *= a, k *= a; }
+	void operator /= (float a) { w /= a, i /= a, j /= a, k /= a; }
+
+	void normalize() {
+		float d = w * w + i * i + j * j + k * k;
+		d = sqrtf(d);
+		w /= d;
+		i /= d;
+		j /= d;
+		k /= d;
+	}
+	friend quat operator * (float a, quat v) { return v * a; }
+	quat operator-() const { return quat(-w, -i, -j, -k); }
+	friend quat uni(quat a) {
+		a.normalize();
+		return a;
+	}
+};
 class matrix4 {
 public:
 	//row-major, need to be transposed for OpenGL
@@ -248,6 +299,29 @@ public:
 		mt[8]  = 0;		     mt[9] = 0;			mt[10] = 1/(f - n);	mt[11] = - n / (f - n);
 		mt[12] = 0.0f;       mt[13] = 0.0f;		mt[14] = 0.0f;	    mt[15] = 1.0f;
 	}
+	inline void makeQuat(quat q) {
+		q.normalize();
+		mt[0] = 1 - (2 * q.j * q.j + 2 * q.k * q.k);
+		mt[1] = 2 * q.i * q.j + 2 * q.k * q.w;
+		mt[2] = 2 * q.i * q.k - 2 * q.j * q.w;
+		mt[3] = 0.0f;
+
+		mt[4] = 2 * q.i * q.j - 2 * q.k * q.w;
+		mt[5] = 1 - (2 * q.i * q.i + 2 * q.k * q.k);
+		mt[6] = 2 * q.j * q.k + 2 * q.i * q.w;
+		mt[7] = 0.0f;
+
+		mt[8] = 2 * q.i * q.k + 2 * q.j * q.w;
+		mt[9] = 2 * q.j * q.k - 2 * q.i * q.w;
+		mt[10] = 1 - (2 * q.i * q.i + 2 * q.j * q.j);
+		mt[11] = 0.0f;
+
+		mt[12] = 0.0f;
+		mt[13] = 0.0f;
+		mt[14] = 0.0f;
+		mt[15] = 1.0f;
+
+	}
 	void makeIdentity() {
 		makeZero();
 		for (int i = 0; i < 4; ++i) mt[i * 4 + i] = 1;
@@ -255,7 +329,6 @@ public:
 	void makeZero() {
 		std::fill(mt, mt + 16, 0);
 	}
-
 	inline static matrix4 zero() { matrix4 m; m.makeZero();	     return m; }
 	inline static matrix4 Rx(float a) { matrix4 m; m.makeRX(a);	     return m; }
 	inline static matrix4 Ry(float a) { matrix4 m; m.makeRY(a);		 return m; }
@@ -265,6 +338,7 @@ public:
 	inline static matrix4 coord(vec3 x, vec3 y, vec3 z) { matrix4 m; m.makeCoord(x, y, z); return m; }
 	inline static matrix4 ortho(float l, float r, float b, float t, float n, float f) { matrix4 m; m.makeOrtho(l,r,b,t,n,f);   return m; }
 	inline static matrix4 identity() { matrix4 m; m.makeIdentity();   return m; }
+	inline static matrix4 quat(quat q) { matrix4 m; m.makeQuat(q);  return m; }
 
 	//Transpose
 	inline matrix4 transposed() const {

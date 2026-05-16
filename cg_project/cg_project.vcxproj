@@ -153,21 +153,24 @@
     <ClCompile Include="ShaderProgram.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="VertexObject.cpp" />
-    <ClCompile Include="VoxelHelper.cpp" />
+    <ClCompile Include="Voxelizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aabb.hpp" />
     <ClInclude Include="bvh.hpp" />
     <ClInclude Include="Camera.hpp" />
+    <ClInclude Include="CollisionDetector.hpp" />
     <ClInclude Include="Constants.hpp" />
     <ClInclude Include="DepthCubeMap.hpp" />
     <ClInclude Include="DynamicCubeMap.hpp" />
+    <ClInclude Include="ForceGenerator.hpp" />
     <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="Helpers.hpp" />
     <ClInclude Include="interval.hpp" />
     <ClInclude Include="MeshBuilder.hpp" />
     <ClInclude Include="Model.hpp" />
     <ClInclude Include="ModelLoader.hpp" />
+    <ClInclude Include="PhysicsSolver.hpp" />
     <ClInclude Include="Shader.hpp" />
     <ClInclude Include="ShaderProgram.hpp" />
     <ClInclude Include="stb_image.h" />
@@ -175,11 +178,12 @@
     <ClInclude Include="Vec.hpp" />
     <ClInclude Include="VertexObject.hpp" />
     <ClInclude Include="Visualization.hpp" />
-    <ClInclude Include="VoxelHelper.hpp" />
+    <ClInclude Include="Voxelizer.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="aabbvisualizer.frag" />
     <None Include="aabbvisualizer.vert" />
+    <None Include="buoyancy_center.comp" />
     <None Include="center_calculator.comp" />
     <None Include="collision.comp" />
     <None Include="collision_attribute.comp" />

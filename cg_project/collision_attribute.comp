@@ -2,7 +2,6 @@
 
 // local workgroup with 8x8x1 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-
 // run a O(voxelsizeof(A)) algorithm to check the voxel space's intersection
 // we need transform the A space's voxels to B space 
 struct VoxelInfo{
@@ -52,6 +51,7 @@ int occupied(ivec3 v){
 	else return 1;
 }
 int dot_int(ivec3 a, ivec3 b) {
+
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 void main(){

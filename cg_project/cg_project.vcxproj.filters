@@ -81,7 +81,7 @@
     <ClCompile Include="GameObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="VoxelHelper.cpp">
+    <ClCompile Include="Voxelizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -143,7 +143,16 @@
     <ClInclude Include="Visualization.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="VoxelHelper.hpp">
+    <ClInclude Include="CollisionDetector.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PhysicsSolver.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Voxelizer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ForceGenerator.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -206,6 +215,12 @@
       <Filter>Shaders\Shading</Filter>
     </None>
     <None Include="collision_attribute.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="center_calculator.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="buoyancy_center.comp">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
