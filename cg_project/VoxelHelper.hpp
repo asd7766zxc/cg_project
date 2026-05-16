@@ -27,6 +27,7 @@ public:
 		glBindVertexArray(0);
 	}
 	static void draw_voxel_collision(shared_ptr<GameObject> obj, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh) {
+		glDisable(GL_DEPTH_TEST);
 		visualizer->use();
 		visualizer->setVec4("voxel_color", vec4(0.8f, 0.1f, 0.2f, 0.8f));
 		visualizer->setMat4("proj", camera->proj);
@@ -45,6 +46,7 @@ public:
 
 		glDrawArraysInstanced(GL_TRIANGLES, 0, cube_mesh->vertex_count, voxel_count);
 		glBindVertexArray(0);
+		glEnable(GL_DEPTH_TEST);
 	}
 	static void draw_aabb(aabb bb, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh) {
 		visualizer->use();
@@ -53,4 +55,5 @@ public:
 		visualizer->setMat4("model", mat4::trans(vec3(bb.x.min, bb.y.min, bb.z.min)) * mat4::scale(vec3(bb.x.size(), bb.y.size(), bb.z.size())) * mat4::trans(0.5));
 		cube_mesh->draw();	
 	}
+
 };

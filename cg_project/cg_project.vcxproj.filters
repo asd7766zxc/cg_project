@@ -22,6 +22,9 @@
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{9738e492-06b8-4271-be38-f544ecbd7162}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\Shading">
+      <UniqueIdentifier>{e4964b08-4c1b-4f97-9944-5320bcb76a6b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -76,6 +79,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GameObject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VoxelHelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -134,38 +140,14 @@
     <ClInclude Include="MeshBuilder.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Visualization.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VoxelHelper.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="phong.vert">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="phong.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="shadow.vert">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="shadow.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="shadow.geom">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="env.geom">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="env.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="env.vert">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="refract.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="refract.vert">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="voxelizer.vert">
       <Filter>Shaders</Filter>
     </None>
@@ -176,6 +158,54 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="voxelvisualizer.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="aabbvisualizer.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="aabbvisualizer.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="collision.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="solidcolor.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="solidcolor.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="env.frag">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="env.geom">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="env.vert">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="phong.frag">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="phong.vert">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="refract.frag">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="refract.vert">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="shadow.frag">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="shadow.geom">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="shadow.vert">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="collision_attribute.comp">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

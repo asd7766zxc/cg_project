@@ -26,9 +26,8 @@ uniform int voxel_size_q;
 layout(binding = 0, r32ui) uniform readonly uimage3D voxelA;
 layout(binding = 1, r32ui) uniform readonly uimage3D voxelB;
 
-// write result to visualize
-layout(binding = 2, r32ui) uniform uimage3D Collisions;
-layout(std430, binding = 1) buffer Approximate_Attribute{
+// the 2nd pass 
+layout(std430, binding = 1) readonly buffer Approximate_Attribute{
 	int point_x;
 	int point_y;
 	int point_z;
@@ -39,6 +38,11 @@ layout(std430, binding = 1) buffer Approximate_Attribute{
 
 	int voxel_count;
 };
+
+layout(std430, binding = 2) buffer Penetration{
+	int max_penetrate;
+	int min_penetrate;
+};
 int occupied(ivec3 v){
 	if(v.x >= voxelInfoA.dimx || v.y >= voxelInfoA.dimy || v.z >= voxelInfoA.dimz) return 0;
 	int zi = v.z / 32;
@@ -46,6 +50,9 @@ int occupied(ivec3 v){
 	int zr = v.z % 32;
 	if(((data >> zr) & 1u) == 0) return 0;
 	else return 1;
+}
+int dot_int(ivec3 a, ivec3 b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 void main(){
 	ivec3 voxelCoordA = ivec3(gl_GlobalInvocationID.xy, 0);
@@ -83,16 +90,11 @@ void main(){
 
 			// get the local normal (3x3x3 central difference)
 			ivec3 coordA = ivec3(voxelCoordA.xy, z);
-
-			atomicAdd(normal_x,(occupied(coordA + ivec3(1,0,0)) - occupied(coordA + ivec3(-1,0,0))));
-			atomicAdd(normal_y,(occupied(coordA + ivec3(0,1,0)) - occupied(coordA + ivec3(0,-1,0))));
-			atomicAdd(normal_z,(occupied(coordA + ivec3(0,0,1)) - occupied(coordA + ivec3(0,0,-1))));
-
-			atomicAdd(point_x,coordA.x);
-			atomicAdd(point_y,coordA.y);
-			atomicAdd(point_z,coordA.z);
-			atomicAdd(voxel_count,1);
-			imageAtomicOr(Collisions, ivec3(voxelCoordA.xy, zi), 1u << zr);
+			ivec3 center = ivec3(point_x, point_y, point_z);
+			ivec3 normals = ivec3(normal_x, normal_y, normal_z);
+			int dis = voxel_count * dot_int(coordA,normals) - dot_int(center,normals);
+			atomicMax(max_penetrate, dis);
+			atomicMin(min_penetrate, dis);
 		}
 	}
 

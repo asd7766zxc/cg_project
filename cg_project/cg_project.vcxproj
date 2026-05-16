@@ -174,17 +174,21 @@
     <ClInclude Include="Texture.hpp" />
     <ClInclude Include="Vec.hpp" />
     <ClInclude Include="VertexObject.hpp" />
+    <ClInclude Include="Visualization.hpp" />
     <ClInclude Include="VoxelHelper.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="aabbvisualizer.frag" />
     <None Include="aabbvisualizer.vert" />
     <None Include="collision.comp" />
+    <None Include="collision_attribute.comp" />
     <None Include="env.frag" />
     <None Include="env.geom" />
     <None Include="env.vert" />
     <None Include="refract.frag" />
     <None Include="refract.vert" />
+    <None Include="solidcolor.frag" />
+    <None Include="solidcolor.vert" />
     <None Include="shadow.frag" />
     <None Include="shadow.geom" />
     <None Include="shadow.vert" />

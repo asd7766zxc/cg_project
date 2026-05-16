@@ -146,10 +146,216 @@ public:
 		}
 		return make_shared<Model>(vertices.data(), vertices.size() * sizeof(float), vertices.size() / 8);
 	}
+
+	// toward +z with unit lengh and diameter 0.5
+	shared_ptr<Model> buildRod(float step) {
+		vector<float> vertices;
+		float r = 0.25;
+		auto add_zero = [&](float z,int flat) {
+			vertices.push_back(0);
+			vertices.push_back(0);
+			vertices.push_back(z);
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+			vertices.push_back(flat);
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+		};
+		auto add = [&](int i, float z,int flat) {
+			float angle = 2 * i * pi / step;
+			
+			float x = r * std::cos(angle);
+			float y = r * std::sin(angle);
+
+			vertices.push_back(x);
+			vertices.push_back(y);
+			vertices.push_back(z);
+
+			if (flat) {
+				vertices.push_back(0);
+				vertices.push_back(0);
+				vertices.push_back(flat);
+			}
+			else {
+				vertices.push_back(x);
+				vertices.push_back(y);
+				vertices.push_back(0);
+			}
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+		};
+		for (int i = 0; i < step; ++i) {
+			add(i, 0, 0);
+			add(i + 1, 0, 0);
+			add(i + 1, 1.0f, 0);
+
+			add(i + 1, 1.0f, 0);
+			add(i, 1.0f, 0);
+			add(i, 0.0f, 0);
+
+			add(i, 0, -1);
+			add(i + 1, 0, -1);
+			add_zero(0, -1);
+
+			add(i, 1, 1);
+			add(i + 1, 1, 1);
+			add_zero(1, 1);
+		}
+
+		return make_shared<Model>(vertices.data(), vertices.size() * sizeof(float), vertices.size() / 8);
+	}
+	shared_ptr<Model> buildArrow(float step,float length, float head_size) {
+		vector<float> vertices;
+		
+		float r = 0.25;
+
+		auto add_zero = [&](float z, int flat) {
+			vertices.push_back(0);
+			vertices.push_back(0);
+			vertices.push_back(z);
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+			vertices.push_back(flat);
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+			};
+		auto add = [&](int i, float z, int flat) {
+			float angle = 2 * i * pi / step;
+
+			float x = r * std::cos(angle);
+			float y = r * std::sin(angle);
+
+			vertices.push_back(x);
+			vertices.push_back(y);
+			vertices.push_back(z);
+			if (flat == 2) {
+				vec3 n(x, y, 1);
+				n = uni(n);
+				vertices.push_back(n.x);
+				vertices.push_back(n.y);
+				vertices.push_back(n.z);
+			}
+			else if (flat) {
+				vertices.push_back(0);
+				vertices.push_back(0);
+				vertices.push_back(flat);
+			}
+			else {
+				vertices.push_back(x);
+				vertices.push_back(y);
+				vertices.push_back(0);
+			}
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+			};
+		for (int i = 0; i < step; ++i) {
+			r = 0.25;
+			add(i, 0, 0);
+			add(i + 1, 0, 0);
+			add(i + 1, 1.0f * length, 0);
+
+			add(i + 1, 1.0f * length, 0);
+			add(i, 1.0f * length, 0);
+			add(i, 0.0f, 0);
+
+			add(i, 0, -1);
+			add(i + 1, 0, -1);
+			add_zero(0, -1);
+
+			r = 0.5 * head_size;
+			add(i, 1 * length, 1);
+			add(i + 1, 1 * length, 1);
+			add_zero(1 * length, 1);
+
+			add(i, 1 * length, 2);
+			add(i + 1, 1 * length, 2);
+			r = 0;
+			add(i, 1 * length + 0.5 * head_size, 2);
+
+		}
+
+		return make_shared<Model>(vertices.data(), vertices.size() * sizeof(float), vertices.size() / 8);
+	}
+
+	shared_ptr<Model> buildCone(float step,float head_size) {
+		vector<float> vertices;
+
+		float r = 0.25;
+
+		auto add_zero = [&](float z, int flat) {
+			vertices.push_back(0);
+			vertices.push_back(0);
+			vertices.push_back(z);
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+			vertices.push_back(flat);
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+			};
+		auto add = [&](int i, float z, int flat) {
+			float angle = 2 * i * pi / step;
+
+			float x = r * std::cos(angle);
+			float y = r * std::sin(angle);
+
+			vertices.push_back(x);
+			vertices.push_back(y);
+			vertices.push_back(z);
+			if (flat == 2) {
+				vec3 n(x, y, 1);
+				n = uni(n);
+				vertices.push_back(n.x);
+				vertices.push_back(n.y);
+				vertices.push_back(n.z);
+			}
+			else if (flat) {
+				vertices.push_back(0);
+				vertices.push_back(0);
+				vertices.push_back(flat);
+			}
+			else {
+				vertices.push_back(x);
+				vertices.push_back(y);
+				vertices.push_back(0);
+			}
+
+			vertices.push_back(0);
+			vertices.push_back(0);
+			};
+		float length = 0;
+		for (int i = 0; i < step; ++i) {
+			
+			r = 0.5 * head_size;
+			add(i, 1 * length, 1);
+			add(i + 1, 1 * length, 1);
+			add_zero(1 * length, 1);
+
+			add(i, 1 * length, 2);
+			add(i + 1, 1 * length, 2);
+			r = 0;
+			add(i, 1 * length + 0.5 * head_size, 2);
+
+		}
+
+		return make_shared<Model>(vertices.data(), vertices.size() * sizeof(float), vertices.size() / 8);
+	}
+
+
 	shared_ptr<Model> buildCube() {
 		return make_shared<Model>((float*)cube_vertices, sizeof(cube_vertices), 36);
 	}
 	static shared_ptr<Model> Sphere(int step) { MeshBuilder mb; return mb.buildSphere(step); };
 	static shared_ptr<Model> Plane(float step, vec3 u, vec3 v, vec3 o) { MeshBuilder mb; return mb.buildPlane(step,u,v,o); };
 	static shared_ptr<Model> Cube() { MeshBuilder mb; return mb.buildCube(); }
+	static shared_ptr<Model> Rod(int step) { MeshBuilder mb; return mb.buildRod(step); }
+	static shared_ptr<Model> Arrow(int step,float length,float head_size = 1.0f) { MeshBuilder mb; return mb.buildArrow(step, length, head_size); }
+	static shared_ptr<Model> Cone(int step, float head_size = 1.0f) { MeshBuilder mb; return mb.buildCone(step, head_size); }
 };

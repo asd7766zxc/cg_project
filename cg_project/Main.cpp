@@ -26,6 +26,7 @@
 #include "GameObject.hpp"
 #include <memory>
 #include "VoxelHelper.hpp"
+#include "Visualization.hpp"
 
 shared_ptr<Camera> camera;
 
@@ -135,6 +136,17 @@ const int regular_div = 21 / (REGULAR_DIVISION - 1);
 vector<shared_ptr<GameObject>> regular_grid[REGULAR_DIVISION + 1][REGULAR_DIVISION + 1][REGULAR_DIVISION + 1];
 float d_width = window_width / 2.0;
 float d_height = window_height / 2.0;
+struct collision_attribute {
+	int point_x = 0;
+	int point_y = 0;
+	int point_z = 0;
+
+	int normal_x = 0;
+	int normal_y = 0;
+	int normal_z = 0;
+
+	int voxel_count = 0;
+};
 void onResize(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 	if (split_window)
@@ -256,6 +268,11 @@ signed main() {
 			make_shared<Shader>("aabbvisualizer.frag", GL_FRAGMENT_SHADER)
 	});
 
+	shared_ptr<ShaderProgram> solid_color_program = make_shared<ShaderProgram>
+		(vector<shared_ptr<Shader>>{
+		make_shared<Shader>("solidcolor.vert", GL_VERTEX_SHADER),
+			make_shared<Shader>("solidcolor.frag", GL_FRAGMENT_SHADER)
+	});
 
 
 
@@ -383,11 +400,16 @@ signed main() {
 	shader_program->setFloat("far_plane", light_camera->farp);
 
 	auto updateProgram = [&]() {
+		solid_color_program->use();
+		solid_color_program->setMat4("view", camera->view);
+		solid_color_program->setMat4("proj", camera->proj);
+
 		shader_program->use();
 		shader_program->setMat4("view", camera->view);
 		shader_program->setMat4("proj", camera->proj);
 		shader_program->setVec3("view_position", camera->position);
 		shader_program->setInt("showing_depth_map", showing_depth_map);
+
 	};
 
 
@@ -396,17 +418,32 @@ signed main() {
 	dynamic_cube_map->depthFBO = depthFBO;
 	dynamic_cube_map->depthmap = depthmap;
 
-	shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(10), texture_yellow);
+	shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(100), texture_yellow);
 	shared_ptr<GameObject> moving_teapot = make_shared<GameObject>(teapot, texture_yellow);
 	moving_teapot->position = vec3(12, 10, 10);
 	moving_teapot->scale = vec3(0.5f);
 
-	moving_sphere->position = vec3(10, 10, 10);
+	moving_sphere->position = vec3(12, 10, 10);
 
 	vector<shared_ptr<GameObject>> entity_list;
 	vector<shared_ptr<GameObject>> draw_list;
 
-
+	auto rod_mesh = MeshBuilder::Rod(10);
+	auto cone_mesh = MeshBuilder::Cone(10);
+	auto sphere_mesh = MeshBuilder::Sphere(100);
+	auto draw_vector = [&](vec3 direction, vec3 origin, vec4 color,float scale = 1.0f) {
+		Visualization::draw_vector(solid_color_program, rod_mesh, cone_mesh, direction, origin, color, scale);
+	};
+	auto draw_point = [&](vec3 position, vec4 color,float scale = 1.0f) {
+		Visualization::draw_point(solid_color_program, sphere_mesh, position, color, scale);
+	};
+	GLuint ssbo;
+	glGenBuffers(1, &ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo);
+	collision_attribute zero;
+	vec3 collision_p;
+	vec3 contact_normal;
 	auto resolve_collision = [&](shared_ptr<GameObject> a, shared_ptr<GameObject> b) {
 		a->voxelize(voxelizer_program);
 		b->voxelize(voxelizer_program);
@@ -433,9 +470,18 @@ signed main() {
 		collision_program->setInt("voxelInfoB.corner_y", b->voxel_info.corner_y);
 		collision_program->setInt("voxelInfoB.corner_z", b->voxel_info.corner_z);
 
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(collision_attribute), &zero, GL_DYNAMIC_READ);
+
 		glDispatchCompute((a->voxel_info.dim_x + 7) / 8, (a->voxel_info.dim_y + 7) / 8, 1);
 
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+		collision_attribute* attributes = (collision_attribute*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+		// integer points are corners need to move to center
+		collision_p = vec3(attributes->point_x, attributes->point_y, attributes->point_z) * (1.0 / attributes->voxel_count) * a->voxel_size + a->voxel_info.box_corner + vec3(a->voxel_size / 2.0);
+		contact_normal = uni(vec3(attributes->normal_x, attributes->normal_y, attributes->normal_z));
+		//std::cout << attributes->normal_x;
+		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	};
 	auto collision_solve_regular = [&]() {
 		for (auto& a : entity_list) {
@@ -580,15 +626,17 @@ signed main() {
 			texture_blue->bind();
 			
 			for (auto& a : draw_list) a->draw(shader_program);
+
+		
 			
 			moving_sphere->draw(shader_program);
+
 			moving_teapot->draw(shader_program);
 
 			moving_sphere->update_aabb();
 			
 			//moving_sphere->voxelize(voxelizer_program);
 			glViewport(0, 0, window_width, window_height);
-			glDisable(GL_DEPTH_TEST);
 			//VoxelHelper::draw_voxel(moving_sphere, voxel_visualizer_program, camera, cube);
 			VoxelHelper::draw_voxel_collision(moving_sphere, voxel_visualizer_program, camera, cube);
 
@@ -600,7 +648,11 @@ signed main() {
 			glViewport(0, 0, window_width, window_height);
 			//VoxelHelper::draw_voxel(moving_teapot, voxel_visualizer_program, camera, cube);
 			VoxelHelper::draw_voxel_collision(moving_teapot, voxel_visualizer_program,camera, cube);
-			glEnable(GL_DEPTH_TEST);
+
+
+
+			draw_vector(contact_normal, collision_p, vec4(0, 0, 1, 1),0.2);
+			draw_point(collision_p, { 0,1,0,1 });
 		};
 
 
