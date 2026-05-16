@@ -31,6 +31,7 @@ public:
 	shared_ptr<aabb> bounding_box;
 
 	// physics properties
+	vec3 gravity_center;
 	vec3 velocity;
 	vec3 forces;
 	vec3 torque;
@@ -99,4 +100,5 @@ public:
 	}
 
 	void voxelize(shared_ptr<ShaderProgram> voxelizer);
+	void calculate_gravitycenter(shared_ptr<ShaderProgram> compute);
 };

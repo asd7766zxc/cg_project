@@ -1,6 +1,7 @@
 #include "GameObject.hpp"
 const BYTE empty_voxel_grid[512 * 512 * 512] = { 0 };
 void GameObject::voxelize(shared_ptr<ShaderProgram> voxelizer) {
+	update_aabb();
 	//glDisable(GL_CULL_FACE);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
@@ -73,4 +74,29 @@ void GameObject::voxelize(shared_ptr<ShaderProgram> voxelizer) {
 	// the setting of collision visualize texture is the same as voxel texture
 	glBindTexture(GL_TEXTURE_3D, collisionVisualizeTexture);
 	glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, x_dimen, y_dimen, (z_depth + 31) / 32, GL_RED_INTEGER, GL_UNSIGNED_BYTE, empty_voxel_grid);
+}
+struct ivec3 {
+	int x = 0;
+	int y = 0;
+	int z = 0;
+
+	int voxel_count = 0;
+} zero;
+void GameObject::calculate_gravitycenter(shared_ptr<ShaderProgram> compute){
+	compute->use();
+	compute->setInt("voxelInfoA.dimx", voxel_info.dim_x);
+	compute->setInt("voxelInfoA.dimy", voxel_info.dim_y);
+	compute->setInt("voxelInfoA.dimz", voxel_info.dim_z);
+
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ivec3), &zero, GL_DYNAMIC_READ);
+
+	glDispatchCompute((voxel_info.dim_x + 7) / 8, (voxel_info.dim_y + 7) / 8, 1);
+	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+	ivec3* raw_point = (ivec3*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+
+	vec3 raw_center = (1.0f/ raw_point->voxel_count) * vec3(raw_point->x, raw_point->y, raw_point->z);
+	raw_center *= voxel_info.voxel_size;
+	raw_center += voxel_info.box_corner;
+	gravity_center = raw_center;
 }

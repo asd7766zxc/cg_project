@@ -180,6 +180,7 @@
   <ItemGroup>
     <None Include="aabbvisualizer.frag" />
     <None Include="aabbvisualizer.vert" />
+    <None Include="center_calculator.comp" />
     <None Include="collision.comp" />
     <None Include="collision_attribute.comp" />
     <None Include="env.frag" />
