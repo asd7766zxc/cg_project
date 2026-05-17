@@ -65,14 +65,15 @@ public:
 		}
 	}
 	
-	void draw(shared_ptr<ShaderProgram> shader_program) {
+	virtual void draw(shared_ptr<ShaderProgram> shader_program) {
 		shader_program->use();
 		glActiveTexture(GL_TEXTURE0);
 		texture->bind();
 		shader_program->setMat4("model", localToWorld());
 		model->draw();
 	}
-
+	float lastAppliedWave = 0.0f;
+	bool visible = true;
 	//special parameters
 	bool penetrable = false; // ghost 
 	float density = 1.0f; //water
@@ -91,6 +92,8 @@ public:
 	vec3 velocity;
 	vec3 rotation;
 
+	vec3 lastFrameAcceleration;
+
 	//changes
 	vec3 accumlatedForces;
 	vec3 accumulatedTorque;
@@ -100,14 +103,17 @@ public:
 	mat4 inertia;
 	mat4 inverse_inertia;
 
-	quat orientation = quat(0,0,1,0); // the default orientation
+	float mass_scalar = 1.0f; 
 
-	float velocity_damping = 0.9999;
-	float angular_damping = 0.9999;
+
+	quat orientation = quat(1,0,0,0); // the default orientation
+
+	float velocity_damping = 0.98;
+	float angular_damping = 0.98;
 
 	// if mass < 0 -> infinite mass
 	float inverseMass() const {
-		if (mass < 0) return -1.0f;
+		if (hasInifiniteMass()) return 0.0f;
 		return 1.0 / mass;
 	}
 	bool hasInifiniteMass() const {
@@ -120,11 +126,14 @@ public:
 		// RIR^-1 (座標變換而已) position dosen't matter
 		// R^-1 (to local)
 		// R (to world)
+		if (hasInifiniteMass()) return mat4::zero(); // whyzero? (no change in rotation)
 		auto rotmat = mat4::quat(orientation);
-		return rotmat * inverse_inertia * rotmat.transposed();
+		auto ret = rotmat * inverse_inertia * rotmat.transposed();
+		ret *= (1.0 / mass);
+		return ret;
 	}
 	void integrate(float dt) {
-		if (hasInifiniteMass()) return;
+		if (hasInifiniteMass()) return; //直接假設物體不會動 (stasis)
 		vec3 linear_acc = accumlatedForces * inverseMass() + impulsed_acc; //we have impulsed acc (occur when collision)
 		vec3 angular_acc = inverseInertiaWorld() * accumulatedTorque;
 
@@ -154,12 +163,13 @@ public:
 		accumulatedTorque += (p - getWorldGravityCenter()) ^ f; // r x f
 		addForce(f);
 	}
+	bool draw_without_physics = false;
 	// Local (Mesh coordinate) (mesh -> world/object space)
 	mat4 localToWorld() const {
 		return
 			mat4::trans(position) * // displacement
 			mat4::quat(orientation) * // use the orientation transformation from quaternion
-			mat4::trans(-gravity_center) * mat4::scale(scale); // the scaling usually to scale the object's size
+			mat4::trans(draw_without_physics  ? vec3(0.0) : -gravity_center) * mat4::scale(scale); // the scaling usually to scale the object's size
 	}
 	// motion to world
 	mat4 toWorld() const {

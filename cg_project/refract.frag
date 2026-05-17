@@ -5,7 +5,8 @@ in vec3 pixelNorm;
 in vec2 TexCoord;
 
 out vec4 color;
-uniform samplerCube envmap;
+layout(binding = 0) uniform samplerCube envmap;
+layout(binding = 1) uniform sampler2D tex;
 uniform vec3 camera_position;
 uniform int reflection;
 
@@ -18,5 +19,5 @@ void main(){
 		R = reflect(I,normalize(pixelNorm));
 	else 
 		R = refract(I,normalize(pixelNorm),ratio);
-	color = vec4(texture(envmap,R).rgb,1.0);
+	color = mix(vec4(texture(envmap,R).rgb,1.0),vec4(texture(tex,TexCoord).rgb,1.0),0.5);
 }

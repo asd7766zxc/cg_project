@@ -12,6 +12,7 @@ public:
 	void updateForce(shared_ptr<GameObject> a, float dt) override {
 		if (a->hasInifiniteMass()) return;
 		a->addForce(gravity * a->mass);
+		a->lastFrameAcceleration += gravity;
 	}
 };
 class Spring : ForceGenerator {

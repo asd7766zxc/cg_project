@@ -2,6 +2,7 @@
 
 // local workgroup with 8x8x1 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
 // run a O(voxelsizeof(A)) algorithm to check the voxel space's intersection
 // we need transform the A space's voxels to B space 
 struct VoxelInfo{
@@ -18,30 +19,8 @@ struct VoxelInfo{
 
 uniform VoxelInfo voxelInfoA;
 
-uniform int voxel_size_p;
-uniform int voxel_size_q;
-
 layout(binding = 2, r32ui) uniform readonly uimage3D Collisions;
 
-// the 2nd pass 
-layout(std430, binding = 1) readonly buffer Approximate_Attribute{
-	int point_x;
-	int point_y;
-	int point_z;
-
-	int normal_x;
-	int normal_y;
-	int normal_z;
-
-	int voxel_count;
-};
-
-layout(std430, binding = 2) buffer Penetration{
-	int max_penetrate;
-	int min_penetrate;
-};
-
-uniform int splitting;
 struct currentCenter{
 	int x;
 	int y;
@@ -49,10 +28,35 @@ struct currentCenter{
 };
 
 uniform currentCenter currentCenterA;
+struct collision_att{
+	int point_x;
+	int point_y;
+	int point_z;
+	
+	int normal_x;
+	int normal_y;
+	int normal_z;
 
-int dot_int(ivec3 a, ivec3 b) {
+	int voxel_count;
+};
+layout(std430, binding = 5) buffer splitAtrribute{
+	int point_x[8];
+	int point_y[8];
+	int point_z[8];
+	
+	int normal_x[8];
+	int normal_y[8];
+	int normal_z[8];
 
-    return a.x * b.x + a.y * b.y + a.z * b.z;
+	int voxel_count[8];
+};
+int occupied(ivec3 v){
+	if(v.x >= voxelInfoA.dimx || v.y >= voxelInfoA.dimy || v.z >= voxelInfoA.dimz) return 0;
+	int zi = v.z / 32;
+	uint data = imageLoad(Collisions, ivec3(v.xy, zi)).r;
+	int zr = v.z % 32;
+	if(((data >> zr) & 1u) == 0) return 0;
+	else return 1;
 }
 void main(){
 	ivec3 voxelCoordA = ivec3(gl_GlobalInvocationID.xy, 0);
@@ -71,22 +75,25 @@ void main(){
 			int z = zi * 32 + zr;
 			if(z >= voxelInfoA.dimz) break;
 			if(((dataA >> zr) & 1u) == 0u) continue;
-			ivec3 coordA = ivec3(voxelCoordA.xy, z);
 			
 			//collide...
+
+			// get the local normal (3x3x3 central difference)
+			ivec3 coordA = ivec3(voxelCoordA.xy, z);
+
 			int index = 0;
 			if(coordA.x >= currentCenterA.x) index |= (1<<0);
 			if(coordA.y >= currentCenterA.y) index |= (1<<1);
 			if(coordA.z >= currentCenterA.z) index |= (1<<2);
-			if(splitting != 0 && (index) != (splitting-1)) continue;
-	
+			
+			atomicAdd(normal_x[index],(occupied(coordA + ivec3(1,0,0)) - occupied(coordA + ivec3(-1,0,0))));
+			atomicAdd(normal_y[index],(occupied(coordA + ivec3(0,1,0)) - occupied(coordA + ivec3(0,-1,0))));
+			atomicAdd(normal_z[index],(occupied(coordA + ivec3(0,0,1)) - occupied(coordA + ivec3(0,0,-1))));
 
-			// get the local normal (3x3x3 central difference)
-			ivec3 center = ivec3(point_x, point_y, point_z);
-			ivec3 normals = ivec3(normal_x, normal_y, normal_z);
-			int dis = voxel_count * dot_int(coordA,normals) - dot_int(center,normals);
-			atomicMax(max_penetrate, dis);
-			atomicMin(min_penetrate, dis);
+			atomicAdd(point_x[index],coordA.x);
+			atomicAdd(point_y[index],coordA.y);
+			atomicAdd(point_z[index],coordA.z);
+			atomicAdd(voxel_count[index],1);
 		}
 	}
 

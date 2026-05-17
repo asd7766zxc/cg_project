@@ -41,6 +41,6 @@ public:
 	//proxy style
 	void voxelize(shared_ptr<GameObject> A, bool onlyscaling = false);
 	void calculate_gravitycenter(shared_ptr<GameObject> A);
-	void calculate_momentOfInertia(shared_ptr<GameObject> A);
+	void calculate_tensorOfInertia(shared_ptr<GameObject> A);
 	void calculate_buoyancycenter(shared_ptr<GameObject> A);
 };

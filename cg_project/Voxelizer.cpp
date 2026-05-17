@@ -147,7 +147,8 @@ void Voxelizer::calculate_buoyancycenter(shared_ptr<GameObject> A) {
 }
 
 
-void Voxelizer::calculate_momentOfInertia(shared_ptr<GameObject> A) {
+//this is an unit inertia
+void Voxelizer::calculate_tensorOfInertia(shared_ptr<GameObject> A) {
 	auto& info = A->voxel_info;
 	glBindTexture(GL_TEXTURE_3D, A->voxelTexture);
 	glGetTexImage(GL_TEXTURE_3D, 0, GL_RED_INTEGER,GL_UNSIGNED_INT,tmp_grid);
@@ -162,7 +163,7 @@ void Voxelizer::calculate_momentOfInertia(shared_ptr<GameObject> A) {
 	float ixy = 0;
 	float iyz = 0;
 
-	float pmass = (A->mass / voxel_count); // particle mass
+	float pmass = (1.0 / voxel_count); // particle mass
 	for (int x = 0; x < info.dim_x; ++x) {
 		for (int y = 0; y < info.dim_y; ++y) {
 			for (int zc = 0; zc < (31 + info.dim_z) / 32; ++zc) {

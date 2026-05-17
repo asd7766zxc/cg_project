@@ -6,7 +6,7 @@
 
 using std::numbers::pi;
 using ld = float;
-const int eps = 1e-6;
+const float eps = 1e-6;
 inline int sgn(ld x) { return (x > -eps) - (x < eps); }
 
 class vec3 {
@@ -246,6 +246,7 @@ public:
 				}
 		return ret;
 	}
+
 
 	vec4 operator * (vec4 v) {
 		vec4 ret;

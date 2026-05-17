@@ -172,6 +172,7 @@
     <ClInclude Include="Model.hpp" />
     <ClInclude Include="ModelLoader.hpp" />
     <ClInclude Include="PhysicsSolver.hpp" />
+    <ClInclude Include="reflectionTexture.hpp" />
     <ClInclude Include="Shader.hpp" />
     <ClInclude Include="ShaderProgram.hpp" />
     <ClInclude Include="stb_image.h" />
@@ -180,6 +181,7 @@
     <ClInclude Include="VertexObject.hpp" />
     <ClInclude Include="Visualization.hpp" />
     <ClInclude Include="Voxelizer.hpp" />
+    <ClInclude Include="WaterGrid.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="aabbvisualizer.frag" />
@@ -204,6 +206,7 @@
     <None Include="voxelizer.vert" />
     <None Include="voxelvisualizer.frag" />
     <None Include="voxelvisualizer.vert" />
+    <None Include="voxel_split_center.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

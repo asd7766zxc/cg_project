@@ -26,6 +26,8 @@ uniform int voxel_size_q;
 layout(binding = 0, r32ui) uniform readonly uimage3D voxelA;
 layout(binding = 1, r32ui) uniform readonly uimage3D voxelB;
 
+
+
 uniform int draw_result_onB;
 // write result to visualize
 layout(binding = 2, r32ui) uniform uimage3D Collisions;

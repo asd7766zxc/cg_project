@@ -12,7 +12,7 @@ public:
 	vec3 position = vec3(0, 0, 0);
 
 	float rx, yx, rz;
-	mat4 view, proj;
+	mat4 view, proj, cproj;
 
 	vec3 vup = vec3(0,1,0);
 	void updateView();
@@ -23,4 +23,6 @@ public:
 	void windowResize(int w, int h);
 	mat4 getMatrix() const;
 	vec3 getLookAt();
+	//https://terathon.com/blog/oblique-clipping.html
+	void ObliqueProj(vec3 pos, vec3 norm, bool clipOppo = false);
 };

@@ -65,3 +65,30 @@ mat4 Camera::getMatrix() const {
 vec3 Camera::getLookAt() {
 	return (view * vec4(0, 0, -1, 0)).toVec3();
 }
+
+//https://terathon.com/blog/oblique-clipping.html
+void Camera::ObliqueProj(vec3 pos, vec3 norm, bool clipOppo) {
+	cproj = proj;
+	//far plane 在oblique clip space 會被忽略 但太大會造成數值誤差
+	//所以直接開 1.0f 
+	cproj[10] = (1.0f + 0.01f) / (0.01f - 1.0f);
+	cproj[11] = (2 * 1.0f * 0.01f) / (0.01f - 1.0f);
+
+	vec3 cpos = (view * vec4(pos, 1)).toVec3();
+	vec3 cnorm = (view * vec4(norm, 0)).toVec3();
+	vec4 plane = vec4(cnorm.x, cnorm.y, cnorm.z, -(cnorm * cpos));
+	vec4 q = cproj.inverse() * vec4(
+		plane.x < 0.0f ? 1.0f : -1.0f,
+		plane.y < 0.0f ? 1.0f : -1.0f,
+		1.0f, 1.0f);
+	vec4 c = plane * (2.0f / -(plane * q));
+
+	if (clipOppo) c = c * (-1.0f);
+
+	// 注意 replace 後 inverse 會變。
+	// 所以直接開一個新的
+	cproj.mt[8] = c.x;
+	cproj.mt[9] = c.y;
+	cproj.mt[10] = c.z + 1.0f;
+	cproj.mt[11] = c.w;
+}

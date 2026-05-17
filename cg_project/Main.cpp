@@ -29,6 +29,7 @@
 #include "Voxelizer.hpp"
 #include "CollisionDetector.hpp"
 #include "PhysicsSolver.hpp"
+#include "WaterGrid.hpp"
 
 shared_ptr<Camera> camera;
 
@@ -44,7 +45,7 @@ struct PointLight {
 	bool enable;
 };
 vector<PointLight> point_lights;
-bool pause_world = false;
+bool pause_world = true;
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_E && action == GLFW_PRESS){
 		camera_control = !camera_control;
@@ -151,9 +152,9 @@ void onResize(GLFWwindow* window, int width, int height) {
 signed main() {
 
 	camera = make_shared<Camera>();
-	camera->position = vec3(10, 10, 10);
-	camera->lookAt({ 10,10,10 });
-	camera->yx = pi / 2;
+	camera->position = vec3(-3,6,2);
+	camera->yx = 0.75;
+	camera->rx = -0.75;
 	camera->windowResize(window_width, window_height);
 
 #pragma region WindowInitialization
@@ -207,12 +208,12 @@ signed main() {
 	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity,
+	/*glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity,
 		GLsizei length, const GLchar* message, const void* userParam) {
 			fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
 				(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
 				type, severity, message);
-		}, 0);
+		}, 0);*/
 
 	shared_ptr<ShaderProgram> shader_program = make_shared<ShaderProgram>
 		(vector<shared_ptr<Shader>>{ 
@@ -248,11 +249,11 @@ signed main() {
 
 	// Setup lights
 	point_lights.push_back({
-		{10.5,21.5,10.5}, //position
+		{0,15,0}, //position
 		{0.5,0.5,0.5}, //ambient
 		{1,1,1}, //diffuse
 		{.5,.5,.5}, //specular
-		{0,.2,1}, //attenuation
+		{0,0.05,1}, //attenuation
 		1, //enable
 	});
 	point_lights.push_back({
@@ -307,8 +308,10 @@ signed main() {
 	
 	shader_program->use();
 
-	shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot.obj");
+	shared_ptr<ModelLoader> teapot_nolid_raw = make_shared<ModelLoader>("utah_teapot_nolid.obj");
+	shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot_nold.obj");
 	shared_ptr<Model> teapot = make_shared<Model>(teapot_raw->vertices, teapot_raw->vertex_size * 8 * 4, teapot_raw->vertex_size);
+	shared_ptr<Model> teapot_nolid = make_shared<Model>(teapot_nolid_raw->vertices, teapot_nolid_raw->vertex_size * 8 * 4, teapot_nolid_raw->vertex_size);
 	// [-.5,-.5,-.5] ~ [.5,.5,.5]
 	shared_ptr<Model> cube = MeshBuilder::Cube();
 	int frame_counter = 0;
@@ -374,43 +377,70 @@ signed main() {
 
 
 	shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(100), texture_yellow);
-	shared_ptr<GameObject> moving_teapot = make_shared<GameObject>(teapot, texture_yellow);
-	shared_ptr<GameObject> big_water_tank = make_shared<GameObject>(cube, texture_white);
+	shared_ptr<GameObject> moving_teapot = make_shared<GameObject>(teapot_nolid, texture_yellow);
+	shared_ptr<GameObject> moving_cube = make_shared<GameObject>(cube, texture_yellow);
 
+	shared_ptr<GameObject> moving_metal_cube = make_shared<GameObject>(cube, texture_yellow);
+
+	shared_ptr<GameObject> big_water_tank = make_shared<GameObject>(cube, texture_white);
+	float tank_size = 10.f;
+	shared_ptr<WaterGrid> water_grid = make_shared<WaterGrid>(100, vec3(tank_size, 5, tank_size), texture_blue);
+	water_grid->internal_object->position = vec3(0.0);
+	water_grid->internal_object->visible = false;
+	auto env_cam_pos = 0.5 * (water_grid->internal_object->scale - water_grid->internal_object->position);
+	//env_cam_pos;
+	dynamic_cube_map->refract_model_position = 0.5 * (water_grid->internal_object->scale - water_grid->internal_object->position) - vec3(0,-5,0);
 
 	big_water_tank->penetrable = true;
 	big_water_tank->mass = -1;
+	big_water_tank->density = 997.0; //997kg/m^3
 	big_water_tank->scale = vec3(10, 5, 10);
-	big_water_tank->position = vec3(10,6,10);
-	moving_teapot->position = vec3(12, 10, 10);
-	moving_teapot->scale = vec3(0.5f);
-	//moving_teapot->mass = 0.2;
-	//moving_teapot->rotation = vec3(0, 0, 1);
-	moving_sphere->position = vec3(12.5, 9.5, 10);
-	//moving_sphere->rotation = vec3(0, 0, 1);
+	big_water_tank->position = vec3(0.0);
+
+	moving_cube->position = vec3(3,10,3);
+	moving_cube->scale = vec3(1.0f,0.3f,1.0f);
+	moving_cube->mass = 120;
+
+	moving_sphere->position = vec3(5, 100, 5);
+	moving_sphere->velocity = vec3(0, 0.1, 0);
+	moving_sphere->scale = vec3(0.5);
+	moving_sphere->mass = 157.08;
+
+
+	moving_metal_cube->mass = 2000;
+	moving_metal_cube->position = vec3(-2, 5, -2);
+	moving_metal_cube->scale = vec3(0.3f, 0.3f, 0.3f);
+
+	moving_teapot->position = vec3(5,20,5);
+	moving_teapot->scale = vec3(0.5);
+	moving_teapot->mass = 200;
+	//moving_teapot->
 
 	PhysicsSolver physic_solver(voxelizer);
 	
+	physic_solver.add_entity(moving_metal_cube);
 	physic_solver.add_entity(moving_sphere);
+	physic_solver.add_entity(moving_cube);
+	physic_solver.add_entity(water_grid->internal_object);
 	physic_solver.add_entity(moving_teapot);
-	physic_solver.add_entity(big_water_tank);
-	for (int dx = -1; dx <= 1; ++dx) {
-		for (int dy = -1; dy <= 1; ++dy) {
+
+	for (int dx = 1; dx >= -1; --dx) {
+		for (int dy = 1; dy >= -1; --dy) {
 			if (dx == 0 || dy == 0) {
 				if (dx == 0 && dy == 0) continue;
-				shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
+				shared_ptr<GameObject> wallN = make_shared<GameObject>(MeshBuilder::Cube(), warning_tape);
 				wallN->mass = -1;
 				wallN->scale = vec3(10,7,10);
-				wallN->position = big_water_tank->position + 10 * vec3(dx,0,dy) + 0.2 * vec3(dx, 0, dy);
-				physic_solver.add_entity(wallN);
+				wallN->position = big_water_tank->position + 10 * vec3(dx,0,dy) + 0 * vec3(dx, 0, dy);
+				//physic_solver.add_entity(wallN);
 			}
 		}
 	}
 	shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
 	wallN->mass = -1;
-	wallN->scale = vec3(10, 4.8, 10);
+	wallN->scale = vec3(10, 6, 10);
 	wallN->position = big_water_tank->position - 5 * vec3(0, 1, 0);
-	physic_solver.add_entity(wallN);
+	//physic_solver.add_entity(wallN);
 
 	const float dt = 1/60.0;
 
@@ -430,8 +460,12 @@ signed main() {
 		delta_stamp = glfwGetTime();
 		updateWorld(window,delta);
 
-		if(!pause_world)
-		physic_solver.update(dt);
+		if (!pause_world) {
+			physic_solver.update(dt,water_grid);
+			water_grid->update();
+			voxelizer->voxelize(water_grid->internal_object);
+		}
+
 
 		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
@@ -469,19 +503,8 @@ signed main() {
 			texture_blue->bind();
 			
 			for (auto& a : physic_solver.entity_list) {
-				if (a->penetrable) continue;
+				if (!a->visible) continue;
 				a->draw(shader_program);
-			}
-			glViewport(0, 0, window_width, window_height);
-			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel(a);
-			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel_collision(a);
-			//for (auto& a : physic_solver.entity_list) visualizer.draw_aabb(*(a->bounding_box));
-			for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
-			for (auto& a : physic_solver.collision_detector->collisions) {
-				if (a.inwater) continue;
-				visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
-				visualizer.draw_point(a.point, { 1,1,0,1 });
-				visualizer.draw_vector(a.normal* a.penetration, a.point, { 0,0,1,1 });
 			}
 		};
 
@@ -511,15 +534,31 @@ signed main() {
 
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_CUBE_MAP, dynamic_cube_map->environMap);
+			glActiveTexture(GL_TEXTURE1);
+			water_grid->internal_object->texture->bind();
+			glBindTexture(GL_TEXTURE_CUBE_MAP, dynamic_cube_map->environMap);
 			refract_program->use();
 			refract_program->setMat4("view", camera->view);
 			refract_program->setMat4("proj", camera->proj);
 			refract_program->setVec3("camera_position", camera->position);
 			refract_program->setInt("reflection", 1);
-			refract_program->setMat4("model", mat4::trans(dynamic_cube_map->refract_model_position));
-			teapot->draw();
-		
+			refract_program->setMat4("textureMat", mat4::identity());
+			refract_program->setMat4("model", water_grid->internal_object->localToWorld());
+			//teapot->draw();
+			water_grid->internal_object->model->draw();
 			shader_program->use();
+
+			glViewport(0, 0, window_width, window_height);
+			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel(a);
+			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel_collision(a);
+			//for (auto& a : physic_solver.entity_list) visualizer.draw_aabb(*(a->bounding_box));
+			for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
+			for (auto& a : physic_solver.collision_detector->collisions) {
+				//if (a.inwater) continue;
+				visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
+				visualizer.draw_point(a.point, { 1,1,0,1 });
+				visualizer.draw_vector(a.normal * a.penetration, a.point, { 0,0,1,1 });
+			}
 
 		};
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
