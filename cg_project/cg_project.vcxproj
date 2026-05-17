@@ -160,6 +160,7 @@
     <ClInclude Include="bvh.hpp" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="CollisionDetector.hpp" />
+    <ClInclude Include="CollisionResolver.hpp" />
     <ClInclude Include="Constants.hpp" />
     <ClInclude Include="DepthCubeMap.hpp" />
     <ClInclude Include="DynamicCubeMap.hpp" />

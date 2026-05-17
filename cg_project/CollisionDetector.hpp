@@ -12,6 +12,7 @@ struct contact_attribute {
 	float min_penetration;
 	int voxel_count = 0;
 	bool inwater = false;
+	bool draw_onB = false;
 };
 class CollisionDetector {
 public:
@@ -106,9 +107,13 @@ public:
 		glBindImageTexture(0, a->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 		glBindImageTexture(1, b->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 
-		glBindImageTexture(2, a->collisionVisualizeTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
+		//TODO : find the aabb enclosing the result and using this boundary to speed up
+		bool draw_result_onB = false;
+		if (a->voxel_info.voxel_count > b->voxel_info.voxel_count) draw_result_onB = true;
+		glBindImageTexture(2, draw_result_onB ? b->collisionVisualizeTexture : a->collisionVisualizeTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 
 		collision_program->use();
+		collision_program->setInt("draw_result_onB", draw_result_onB);
 		collision_program->setInt("voxelInfoA.dimx", a->voxel_info.dim_x);
 		collision_program->setInt("voxelInfoA.dimy", a->voxel_info.dim_y);
 		collision_program->setInt("voxelInfoA.dimz", a->voxel_info.dim_z);
@@ -198,6 +203,7 @@ public:
 			real_min_penetration,
 			attributes->voxel_count,
 			waterflag,
+			draw_result_onB,
 		});
 		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	};

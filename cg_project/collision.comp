@@ -26,6 +26,7 @@ uniform int voxel_size_q;
 layout(binding = 0, r32ui) uniform readonly uimage3D voxelA;
 layout(binding = 1, r32ui) uniform readonly uimage3D voxelB;
 
+uniform int draw_result_onB;
 // write result to visualize
 layout(binding = 2, r32ui) uniform uimage3D Collisions;
 layout(std430, binding = 1) buffer Approximate_Attribute{
@@ -92,7 +93,11 @@ void main(){
 			atomicAdd(point_y,coordA.y);
 			atomicAdd(point_z,coordA.z);
 			atomicAdd(voxel_count,1);
-			imageAtomicOr(Collisions, ivec3(voxelCoordA.xy, zi), 1u << zr);
+			if(draw_result_onB != 0){
+				imageAtomicOr(Collisions, ivec3(coord.xy, coord.z/32), 1u << (coord.z % 32));
+			}else{
+				imageAtomicOr(Collisions, ivec3(voxelCoordA.xy, zi), 1u << zr);
+			}
 		}
 	}
 

@@ -394,7 +394,7 @@ signed main() {
 	physic_solver.add_entity(moving_sphere);
 	physic_solver.add_entity(moving_teapot);
 	physic_solver.add_entity(big_water_tank);
-	/*for (int dx = -1; dx <= 1; ++dx) {
+	for (int dx = -1; dx <= 1; ++dx) {
 		for (int dy = -1; dy <= 1; ++dy) {
 			if (dx == 0 || dy == 0) {
 				if (dx == 0 && dy == 0) continue;
@@ -405,7 +405,7 @@ signed main() {
 				physic_solver.add_entity(wallN);
 			}
 		}
-	}*/
+	}
 	shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
 	wallN->mass = -1;
 	wallN->scale = vec3(10, 4.8, 10);
@@ -479,6 +479,7 @@ signed main() {
 			for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
 			for (auto& a : physic_solver.collision_detector->collisions) {
 				if (a.inwater) continue;
+				visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
 				visualizer.draw_point(a.point, { 1,1,0,1 });
 				visualizer.draw_vector(a.normal* a.penetration, a.point, { 0,0,1,1 });
 			}

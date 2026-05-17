@@ -299,6 +299,17 @@ public:
 		mt[8]  = 0;		     mt[9] = 0;			mt[10] = 1/(f - n);	mt[11] = - n / (f - n);
 		mt[12] = 0.0f;       mt[13] = 0.0f;		mt[14] = 0.0f;	    mt[15] = 1.0f;
 	}
+	//the axis will be the x-axis of LCS (this is lcs to wcs)
+	inline void makeXaxisTrans(vec3 axis) {
+		axis = uni(axis);
+		vec3 vup(0, 1, 0);
+		if (std::fabs(axis.x) < std::fabs(axis.y)) // close to y (vup need change)
+			vup = vec3(1, 0, 0);
+		vec3 u = (axis ^ vup); // right
+		u = uni(u);
+		vec3 v = (u ^ axis);
+		makeCoord(axis,v,u);
+	}
 	inline void makeQuat(quat q) {
 		q.normalize();
 		mt[0] = 1 - (2 * q.j * q.j + 2 * q.k * q.k);
@@ -339,7 +350,7 @@ public:
 	inline static matrix4 ortho(float l, float r, float b, float t, float n, float f) { matrix4 m; m.makeOrtho(l,r,b,t,n,f);   return m; }
 	inline static matrix4 identity() { matrix4 m; m.makeIdentity();   return m; }
 	inline static matrix4 quat(quat q) { matrix4 m; m.makeQuat(q);  return m; }
-
+	inline static matrix4 axisAsX(vec3 x) { matrix4 m; m.makeXaxisTrans(x);  return m; }
 	//Transpose
 	inline matrix4 transposed() const {
 		matrix4 ret;
