@@ -126,7 +126,7 @@ public:
 				height_map_old[i][j] = height_map[i][j] = 0.0f; //initial height
 				float x = float(i) * delta;
 				float z = float(j) * delta;
-				//height_map_old[i][j] = std::exp(-(x - xc) * (x - xc) / (w * w)) * std::exp(-(z - xc) * (z - xc) / (w * w)) * 0.5; // initial disturbance
+				height_map_old[i][j] = std::exp(-(x - xc) * (x - xc) / (w * w)) * std::exp(-(z - xc) * (z - xc) / (w * w)) * 0.5; // initial disturbance
 			}
 		}
 		updateGrid();
@@ -216,7 +216,7 @@ public:
 		float dwave = std::min(0.02f, wave_amplifier *std::fabs(p - a->lastAppliedWave));
 		a->lastAppliedWave = p;
 		if (dwave < eps) return;
-		std::cout << "apply wave at " << xc << "," << zc << " with power " << dwave << std::endl;
+		//std::cout << "apply wave at " << xc << "," << zc << " with power " << dwave << std::endl;
 		for (int i = 0; i < grid_resolution; ++i) {
 			for (int j = 0; j < grid_resolution; ++j) {
 				float x = float(i) * delta;

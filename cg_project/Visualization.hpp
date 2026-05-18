@@ -133,7 +133,14 @@ public:
 		visualizer->setMat4("model", mat4::trans(vec3(bb.x.min, bb.y.min, bb.z.min)) * mat4::scale(vec3(bb.x.size(), bb.y.size(), bb.z.size())) * mat4::trans(0.5));
 		cube_mesh->draw();
 	}
+	static void draw_glow(shared_ptr<GameObject> obj, shared_ptr<ShaderProgram> program, vec4 color) {
 
+		program->use();
+
+		program->setMat4("model", obj->localToWorld());
+		program->setVec4("solid_color", color);
+		obj->model->draw();
+	}
 	shared_ptr<Model> rod_mesh = MeshBuilder::Rod(10);
 	shared_ptr<Model> cone_mesh = MeshBuilder::Cone(10);
 	shared_ptr<Model> sphere_mesh = MeshBuilder::Sphere(100);
@@ -157,5 +164,8 @@ public:
 		//TODO: draw the axis only
 		Visualization::draw_aabb(bb, aabb_visualizer_program, camera, cube);
 	}
-
+	void draw_glow(shared_ptr<GameObject> obj, vec4 color) {
+		update_program_view(solid_color_program);
+		Visualization::draw_glow(obj, solid_color_program,color);
+	}
 };

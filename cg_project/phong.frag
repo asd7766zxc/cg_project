@@ -37,6 +37,7 @@ uniform float far_plane;
 uniform int showing_depth_map;
 uniform int engraved;
 uniform vec3 solid_color;
+uniform float opacity;
 
 float CalculateShadow(int i){
 	vec3 lightToPixel = pixelPos - point_lights[i].position;
@@ -95,7 +96,7 @@ void main(){
 		light_color += overall_light_color;
 		float mx = max(max(light_color.x,light_color.y),light_color.z);
 		if(mx >= 1) light_color /= mx;
-		color = texture(texture1, TexCoord) * vec4(light_color,1.0) * vec4(solid_color,1.0); 	
+		color = texture(texture1, TexCoord) * vec4(light_color,1.0) * vec4(solid_color,1.0) * vec4(1,1,1,opacity); 	
 	}
 	if(texture(texture2, TexCoord).g <= 0.5f && engraved == 1){
 		discard;

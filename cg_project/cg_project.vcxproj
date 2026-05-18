@@ -172,7 +172,8 @@
     <ClInclude Include="Model.hpp" />
     <ClInclude Include="ModelLoader.hpp" />
     <ClInclude Include="PhysicsSolver.hpp" />
-    <ClInclude Include="reflectionTexture.hpp" />
+    <ClInclude Include="ray.hpp" />
+    <ClInclude Include="ReflectionTexture.hpp" />
     <ClInclude Include="Shader.hpp" />
     <ClInclude Include="ShaderProgram.hpp" />
     <ClInclude Include="stb_image.h" />
@@ -193,6 +194,8 @@
     <None Include="env.frag" />
     <None Include="env.geom" />
     <None Include="env.vert" />
+    <None Include="reflect.frag" />
+    <None Include="reflect.vert" />
     <None Include="refract.frag" />
     <None Include="refract.vert" />
     <None Include="solidcolor.frag" />

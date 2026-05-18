@@ -12,6 +12,7 @@ inline int sgn(ld x) { return (x > -eps) - (x < eps); }
 class vec3 {
 public:
 	ld x, y, z;
+
 	vec3(ld _x, ld _y, ld _z) :x(_x), y(_y), z(_z) {};
 	vec3(ld* arr) :x(arr[0]), y(arr[1]), z(arr[2]) {};
 	vec3(const ld* arr) :x(arr[0]), y(arr[1]), z(arr[2]) {};

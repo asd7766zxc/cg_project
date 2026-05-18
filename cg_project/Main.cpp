@@ -30,10 +30,13 @@
 #include "CollisionDetector.hpp"
 #include "PhysicsSolver.hpp"
 #include "WaterGrid.hpp"
+#include "reflectionTexture.hpp"
 
 shared_ptr<Camera> camera;
+shared_ptr<GameObject> selected;
 
 bool camera_control = false;
+bool mouse_dragging = false;
 float player_movement_speed = 2.5f;
 std::function<void(int)> add_ball;
 struct PointLight {
@@ -46,6 +49,9 @@ struct PointLight {
 };
 vector<PointLight> point_lights;
 bool pause_world = true;
+bool view_collision = true;
+bool view_points = true;
+bool view_aabb = false;
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_E && action == GLFW_PRESS){
 		camera_control = !camera_control;
@@ -57,7 +63,22 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		exit(0);
 	}
+	
 }
+shared_ptr<GameObject> selected_forAdjustment;
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		mouse_dragging = true;
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+		selected_forAdjustment = selected;
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+		mouse_dragging = false;
+	}
+}
+
 void updateWorld(GLFWwindow* window, float delta) {
 	float camera_speed = player_movement_speed * delta;
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
@@ -81,12 +102,55 @@ void updateWorld(GLFWwindow* window, float delta) {
 	point_lights[2].position[0] = R * cos(glfwGetTime() * 0.1) + R;
 	point_lights[2].position[2] = R * sin(glfwGetTime() * 0.1) + R;
 }
+
+const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+const unsigned int ENV_WIDTH = 1024, ENV_HEIGHT = 1024;
+int window_width = WINDOW_WIDTH, window_height = WINDOW_HEIGHT;
+
+vec3 world_mouse;
+vec3 far_world_mouse;
+vec3 mmpos;
+bool valid_dragging = false;
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
+	if (selected) {
+		auto ray_direct = uni(far_world_mouse - world_mouse);
+		selected->position += 0.5 * yoffset * ray_direct;
+	}
+}
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 	static double last_x = xpos, last_y = ypos;
 	double dx = xpos - last_x, dy = ypos - last_y;
 	last_x = xpos, last_y = ypos;
 	if(camera_control)
 	camera->mouseMove(dx, -dy);
+
+	float mx = xpos;
+	float my = window_height - ypos; 
+	mx = (mx - window_width / 2.0) * (2.0 / window_width);
+	my = (my - window_height / 2.0) * (2.0 / window_height);
+
+	world_mouse = camera->getWorldMousePos(mx,my,0);
+	far_world_mouse = camera->getWorldMousePos(mx, my, 1);
+	if (selected && mouse_dragging) {
+		valid_dragging = true;
+		auto normal = uni( - camera->view.transposed().z_axis());
+		auto pos = selected->position;
+		auto mpos = world_mouse;
+		auto o = world_mouse;
+		auto ray_direct = uni(far_world_mouse - world_mouse);
+		auto denom = ray_direct * normal;
+		if (denom > eps) {
+			float nume = (pos - mpos) * normal;
+			float t = nume / denom;
+			if (t >= 0.0f) {
+				selected->position = t * ray_direct + mpos;
+				mmpos = t * ray_direct + mpos;
+			}
+		}
+	}
+	else {
+		valid_dragging = false;
+	}
 }
 
 bool showing_depth_map = 0;
@@ -94,6 +158,7 @@ bool enable_acc_structure = 1;
 int ball_batch = 1;
 float ball_speed_amplifiler = 1.0;
 bool split_window = false;
+shared_ptr<WaterGrid> water_grid;
 void render_ui(float fps) {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -104,7 +169,7 @@ void render_ui(float fps) {
 	ImGui::Checkbox("showing depth map", &showing_depth_map);
 	ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen;
 	for (int i = 0; i < point_lights.size(); ++i) {
-		if (ImGui::TreeNodeEx(("Point Light #" + std::to_string(i)).c_str(), flag)) {
+		if (ImGui::TreeNodeEx(("Point Light #" + std::to_string(i)).c_str(), 0)) {
 			ImGui::ColorEdit3("ambient", point_lights[i].ambient);
 			ImGui::ColorEdit3("diffuse", point_lights[i].diffuse);
 			ImGui::ColorEdit3("specular", point_lights[i].specular);
@@ -116,23 +181,42 @@ void render_ui(float fps) {
 			ImGui::TreePop();
 		}
 	}
-	ImGui::SliderInt("Ball Batch",&ball_batch, 1, 1000);
+	ImGui::SliderFloat("Wave Limitation",&water_grid->wave_limit, 0, 5.0f);
+	ImGui::SliderFloat("Wave Amplifier", &water_grid->wave_amplifier, 0, 5.0f);
+
+	ImGui::Checkbox("View AABB", &view_aabb);
+	ImGui::Checkbox("View Collision", &view_collision);
+	ImGui::Checkbox("View Parameter Points", &view_points);
+
+	if (selected_forAdjustment) {
+		ImGui::SliderFloat("Mass", &selected_forAdjustment->mass, -5.0, 5000.0f);
+		ImGui::SliderFloat("Velocity.x", &selected_forAdjustment->velocity.x, -5.0f, 5.0f);
+		ImGui::SliderFloat("Velocity.y", &selected_forAdjustment->velocity.y, -5.0f, 5.0f);
+		ImGui::SliderFloat("Velocity.z", &selected_forAdjustment->velocity.z, -5.0f, 5.0f);
+
+		ImGui::SliderFloat("position.x", &selected_forAdjustment->position.x, -5.0f, 5.0f);
+		ImGui::SliderFloat("position.y", &selected_forAdjustment->position.y, -5.0f, 5.0f);
+		ImGui::SliderFloat("position.z", &selected_forAdjustment->position.z, -5.0f, 5.0f);
+
+		ImGui::SliderFloat("orientation.w", &selected_forAdjustment->orientation.w, -5.0f, 5.0f);
+		ImGui::SliderFloat("orientation.i", &selected_forAdjustment->orientation.i, -5.0f, 5.0f);
+		ImGui::SliderFloat("orientation.j", &selected_forAdjustment->orientation.j, -5.0f, 5.0f);
+		ImGui::SliderFloat("orientation.k", &selected_forAdjustment->orientation.k, -5.0f, 5.0f);
+
+	}
 	//ImGui::Checkbox("Accelerated Structure",&enable_acc_structure);
-	ImGui::SliderFloat("Ball Initial Speed", &ball_speed_amplifiler, 0.0, 20.0);
+	//ImGui::SliderFloat("Ball Initial Speed", &ball_speed_amplifiler, 0.0, 20.0);
 
 	ImGui::Checkbox("Split View", &split_window);
-	if (ImGui::Button("Add ball to Scence")) {
+	/*if (ImGui::Button("Add ball to Scence")) {
 		std::cout << "added balls : " << ball_batch << "\n";
 		add_ball(ball_batch);
-	}
+	}*/
 	ImGui::End();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
-const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-const unsigned int ENV_WIDTH = 1024, ENV_HEIGHT = 1024;
-int window_width = WINDOW_WIDTH, window_height = WINDOW_HEIGHT;
 
 float d_width = window_width / 2.0;
 float d_height = window_height / 2.0;
@@ -178,7 +262,8 @@ signed main() {
 
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetCursorPosCallback(window, cursor_pos_callback);
-
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
+	glfwSetScrollCallback(window, scroll_callback);
 	glfwSwapInterval(1); // Make fps constants
 #pragma endregion
 #pragma region GladInitialization
@@ -305,6 +390,7 @@ signed main() {
 	shader_program->setVec3("material.specular", vec3(1));
 	shader_program->setFloat("material.shininess",32);
 
+	shader_program->setFloat("opacity", 1.0f);
 	
 	shader_program->use();
 
@@ -312,6 +398,7 @@ signed main() {
 	shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot_nold.obj");
 	shared_ptr<Model> teapot = make_shared<Model>(teapot_raw->vertices, teapot_raw->vertex_size * 8 * 4, teapot_raw->vertex_size);
 	shared_ptr<Model> teapot_nolid = make_shared<Model>(teapot_nolid_raw->vertices, teapot_nolid_raw->vertex_size * 8 * 4, teapot_nolid_raw->vertex_size);
+	shared_ptr<ReflectionTexture> reflect_texture = make_shared<ReflectionTexture>(window_width,window_height);
 	// [-.5,-.5,-.5] ~ [.5,.5,.5]
 	shared_ptr<Model> cube = MeshBuilder::Cube();
 	int frame_counter = 0;
@@ -384,12 +471,18 @@ signed main() {
 
 	shared_ptr<GameObject> big_water_tank = make_shared<GameObject>(cube, texture_white);
 	float tank_size = 10.f;
-	shared_ptr<WaterGrid> water_grid = make_shared<WaterGrid>(100, vec3(tank_size, 5, tank_size), texture_blue);
+	water_grid = make_shared<WaterGrid>(100, vec3(tank_size, 5, tank_size), texture_blue);
 	water_grid->internal_object->position = vec3(0.0);
 	water_grid->internal_object->visible = false;
 	auto env_cam_pos = 0.5 * (water_grid->internal_object->scale - water_grid->internal_object->position);
 	//env_cam_pos;
-	dynamic_cube_map->refract_model_position = 0.5 * (water_grid->internal_object->scale - water_grid->internal_object->position) - vec3(0,-5,0);
+	//dynamic_cube_map->refract_model_position = 0.5 * (water_grid->internal_object->scale - water_grid->internal_object->position) - vec3(0,-5,0);
+
+
+	reflect_texture->plane_o = water_grid->internal_object->position + vec3(0, 1, 0) * (water_grid->internal_object->scale.y);
+	reflect_texture->plane_u = vec3(0, 0, 1) * (water_grid->internal_object->scale.z);
+	reflect_texture->plane_v = vec3(1, 0, 0) * (water_grid->internal_object->scale.x);
+
 
 	big_water_tank->penetrable = true;
 	big_water_tank->mass = -1;
@@ -438,9 +531,9 @@ signed main() {
 	}
 	shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
 	wallN->mass = -1;
-	wallN->scale = vec3(10, 6, 10);
-	wallN->position = big_water_tank->position - 5 * vec3(0, 1, 0);
-	//physic_solver.add_entity(wallN);
+	wallN->scale = vec3(10, 5, 10);
+	wallN->position = vec3(5, 5, 5) - 7.5 * vec3(0, 1, 0);
+	physic_solver.add_entity(wallN);
 
 	const float dt = 1/60.0;
 
@@ -465,8 +558,27 @@ signed main() {
 			water_grid->update();
 			voxelizer->voxelize(water_grid->internal_object);
 		}
-
-
+		auto getMouseSelect = [&]() {
+			auto o = world_mouse;
+			auto ray_direct = far_world_mouse - world_mouse;
+			ray ray_t(o,uni(ray_direct));
+			interval ri(0, 100); // far plane
+			shared_ptr<GameObject> obj;
+			if (camera_control) return obj;
+			for (auto& a : physic_solver.entity_list) {
+				a->update_aabb();
+				if (!a->visible) continue;
+				a->selected = false;
+				if (a->bounding_box->hit(ray_t, ri)) {
+					obj = a;
+				}
+			}
+			if (obj) obj->selected = true;
+			return obj;
+		};
+		if (!valid_dragging) {
+			selected = getMouseSelect();
+		}
 		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
 #pragma region LightParameterPass
@@ -496,16 +608,25 @@ signed main() {
 
 			shader_program->setMat4("textureMat", mat4::scale(4));
 			shader_program->setMat4("model", mat4::Rx(0.1 * glfwGetTime()));
-			shader_program->setMat4("model", mat4::trans(vec3(2, 2, 1)));
+			shader_program->setMat4("model", mat4::trans(world_mouse) * mat4::scale(0.01));
 			shader_program->use();
 
 			glActiveTexture(GL_TEXTURE0);
 			texture_blue->bind();
 			
+
 			for (auto& a : physic_solver.entity_list) {
 				if (!a->visible) continue;
+				if (a->selected) {
+					visualizer.draw_glow(a,vec4(1,0,0,0.8));
+					shader_program->use();
+				}
 				a->draw(shader_program);
 			}
+
+			shader_program->setFloat("opacity", 0.5f);
+			water_grid->internal_object->draw(shader_program);
+			shader_program->setFloat("opacity", 1.0f);
 		};
 
 
@@ -527,10 +648,13 @@ signed main() {
 
 		dynamic_cube_map->drawBuffer(draw_scence);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		auto draw_world = [&]() {
+		auto draw_half_world = [&]() {
 			updateProgram();
 			draw_scence(shader_program);
+		};
+
+		auto draw_world = [&]() {
+			draw_half_world();
 
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_CUBE_MAP, dynamic_cube_map->environMap);
@@ -541,25 +665,29 @@ signed main() {
 			refract_program->setMat4("view", camera->view);
 			refract_program->setMat4("proj", camera->proj);
 			refract_program->setVec3("camera_position", camera->position);
-			refract_program->setInt("reflection", 1);
+			refract_program->setInt("reflection", 0);
 			refract_program->setMat4("textureMat", mat4::identity());
-			refract_program->setMat4("model", water_grid->internal_object->localToWorld());
-			//teapot->draw();
-			water_grid->internal_object->model->draw();
+			refract_program->setMat4("model", mat4::trans(dynamic_cube_map->refract_model_position));
+			teapot->draw();
+			
 			shader_program->use();
+
+			//reflect_texture->render(camera,draw_half_world, window_width, window_height);
 
 			glViewport(0, 0, window_width, window_height);
 			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel(a);
 			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel_collision(a);
-			//for (auto& a : physic_solver.entity_list) visualizer.draw_aabb(*(a->bounding_box));
-			for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
-			for (auto& a : physic_solver.collision_detector->collisions) {
+			if (view_aabb) for (auto& a : physic_solver.entity_list) visualizer.draw_aabb(*(a->bounding_box));
+			if(view_points) for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
+			if(view_collision) for (auto& a : physic_solver.collision_detector->collisions) {
 				//if (a.inwater) continue;
 				visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
 				visualizer.draw_point(a.point, { 1,1,0,1 });
 				visualizer.draw_vector(a.normal * a.penetration, a.point, { 0,0,1,1 });
 			}
-
+			//visualizer.draw_point(mmpos, { 1,1,1,0.4 });
+		/*	visualizer.draw_point(world_mouse, {1,1,1,0.4});
+			visualizer.draw_vector(uni(far_world_mouse - world_mouse), world_mouse, {1,1,1,0.4});*/
 		};
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

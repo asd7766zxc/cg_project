@@ -158,6 +158,15 @@
     <ClInclude Include="CollisionResolver.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ray.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ReflectionTexture.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WaterGrid.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="voxelizer.vert">
@@ -225,6 +234,15 @@
     </None>
     <None Include="buoyancy_center.comp">
       <Filter>Shaders</Filter>
+    </None>
+    <None Include="voxel_split_center.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="reflect.frag">
+      <Filter>Shaders\Shading</Filter>
+    </None>
+    <None Include="reflect.vert">
+      <Filter>Shaders\Shading</Filter>
     </None>
   </ItemGroup>
 </Project>

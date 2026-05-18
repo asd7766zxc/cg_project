@@ -79,7 +79,7 @@ public:
 	float density = 1.0f; //water
 
 	// physics properties
-	
+	bool selected = false;
 	//centers
 	vec3 gravity_center; // body coord 
 	vec3 buoyancy_center; // world coord
@@ -133,7 +133,8 @@ public:
 		return ret;
 	}
 	void integrate(float dt) {
-		if (hasInifiniteMass()) return; //直接假設物體不會動 (stasis)
+		if (selected) clearAccumulators();
+		if (hasInifiniteMass() || selected) return; //直接假設物體不會動 (stasis)
 		vec3 linear_acc = accumlatedForces * inverseMass() + impulsed_acc; //we have impulsed acc (occur when collision)
 		vec3 angular_acc = inverseInertiaWorld() * accumulatedTorque;
 

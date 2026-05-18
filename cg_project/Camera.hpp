@@ -21,6 +21,7 @@ public:
 	void updateProj(int w, int h, float nearp, float farp, float fov);
 	void make_ortho(int w, int h, float sz);
 	void windowResize(int w, int h);
+	vec3 getWorldMousePos(float mx, float my, int plane);
 	mat4 getMatrix() const;
 	vec3 getLookAt();
 	//https://terathon.com/blog/oblique-clipping.html

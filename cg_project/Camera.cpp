@@ -65,7 +65,9 @@ mat4 Camera::getMatrix() const {
 vec3 Camera::getLookAt() {
 	return (view * vec4(0, 0, -1, 0)).toVec3();
 }
-
+vec3 Camera::getWorldMousePos(float mx, float my,int plane) {
+	return ((getMatrix()).inverse() * vec4(mx, my, plane ,1)).toVec3DivW();
+}
 //https://terathon.com/blog/oblique-clipping.html
 void Camera::ObliqueProj(vec3 pos, vec3 norm, bool clipOppo) {
 	cproj = proj;
