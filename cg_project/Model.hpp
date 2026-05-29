@@ -12,5 +12,6 @@ public:
 	Model();
 	Model(float* vertices, int size, int vertex_count = -1);
 	void initializeBuffers();
+	void bind_buffer();
 	void draw();
 };

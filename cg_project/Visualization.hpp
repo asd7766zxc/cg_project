@@ -133,7 +133,7 @@ public:
 		glEnable(GL_DEPTH_TEST);
 	}
 	static void draw_distance(shared_ptr<GameObject> obj, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh) {
-		glDisable(GL_DEPTH_TEST);
+		//glDisable(GL_DEPTH_TEST);
 		visualizer->use();
 		visualizer->setMat4("proj", camera->proj);
 		visualizer->setMat4("view", camera->view);
@@ -143,17 +143,17 @@ public:
 
 		visualizer->use();
 		glBindVertexArray(cube_mesh->VAO);
-		int voxel_count = obj->voxel_info.dim_x * obj->voxel_info.dim_y * obj->voxel_info.dim_z;
-		visualizer->setInt("xdim", obj->voxel_info.dim_x);
-		visualizer->setInt("ydim", obj->voxel_info.dim_y);
-		visualizer->setInt("zdim", obj->voxel_info.dim_z);
-		visualizer->setVec3("box_dimension", obj->voxel_info.box);
-		visualizer->setFloat("voxel_size", obj->voxel_info.voxel_size);
+		int voxel_count = 1;
+		visualizer->setInt("xdim", 1);
+		visualizer->setInt("ydim", 1);
+		visualizer->setInt("zdim", 1);
+		visualizer->setVec3("box_dimension", vec3(1.0f));
+		visualizer->setFloat("voxel_size", 1.0f);
 		visualizer->setVec3("box_corner_pos", obj->voxel_info.box_corner);
 
 		glDrawArraysInstanced(GL_TRIANGLES, 0, cube_mesh->vertex_count, voxel_count);
 		glBindVertexArray(0);
-		glEnable(GL_DEPTH_TEST);
+		//glEnable(GL_DEPTH_TEST);
 	}
 
 	static void draw_aabb(aabb bb, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh) {

@@ -99,6 +99,11 @@ public:
 
 	GLuint distance_map,distance_fbo;
 	const int raterizer_resolution = 100;
+	void bind_buffers() {
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[0]);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1]);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo[2]);
+	}
 	CollisionDetector(shared_ptr<Voxelizer> voxelizer) : voxelizer(voxelizer) {
 		collision_program = make_shared<ShaderProgram>
 			(vector<shared_ptr<Shader>>{
@@ -123,16 +128,8 @@ public:
 		});*/
 
 		glGenBuffers(1, &ssbo[0]);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[0]);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[0]);
-
 		glGenBuffers(1, &ssbo[1]);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo[1]);
-
 		glGenBuffers(1, &ssbo[2]);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, ssbo[2]);
 
 		glGenTextures(1, &distance_map);
 		glBindTexture(GL_TEXTURE_2D, distance_map);
@@ -160,6 +157,7 @@ public:
 		if (a->penetrable && b->penetrable) return;
 		if (a->hasInifiniteMass() && b->hasInifiniteMass()) return;
 		
+		bind_buffers();
 		bool waterflag = (a->penetrable || b->penetrable);
 
 		if (a->penetrable) swap(a, b); // always let b be water;

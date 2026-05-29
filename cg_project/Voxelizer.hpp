@@ -16,7 +16,11 @@ public:
 	const int voxel_size_q = 100;
 	float voxel_size = float(voxel_size_p) / voxel_size_q;
 
-	const int df_voxel_dim = 64;
+	const int df_voxel_dim = 256;
+	void bind_buffers() {
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, center_ssbo); // the center buffer is on binding 0
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buoyance_ssbo); // the buoyance buffer is on binding 1
+	}
 	Voxelizer() {
 		glGenFramebuffers(1, &voxelize_fbo);
 		glBindFramebuffer(GL_FRAMEBUFFER, voxelize_fbo);
@@ -25,12 +29,7 @@ public:
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		glGenBuffers(1, &center_ssbo);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, center_ssbo);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, center_ssbo); // the center buffer is on binding 3
-
 		glGenBuffers(1, &buoyance_ssbo);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, buoyance_ssbo);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, buoyance_ssbo); // the center buffer is on binding 3
 
 		voxelizer = make_shared<ShaderProgram>
 			(vector<shared_ptr<Shader>>{

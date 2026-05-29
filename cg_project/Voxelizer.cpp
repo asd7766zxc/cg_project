@@ -89,8 +89,7 @@ void Voxelizer::calculate_distance_field(shared_ptr<GameObject> A) {
 	distance_field_compute->setInt("df_resolution", df_voxel_dim);
 	distance_field_compute->setInt("vertex_count", A->model->vertex_count);
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, A->model->triangles);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, A->model->normals);
+	A->model->bind_buffer();
 	glBindTexture(GL_TEXTURE_3D, A->distanceTexture);
 	glBindImageTexture(0, A->distanceTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32F);
 	glDispatchCompute((df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8);
@@ -107,7 +106,7 @@ struct ivec3 {
 // can be only invoke once
 void Voxelizer::calculate_gravitycenter(shared_ptr<GameObject> A) {
 	voxelize(A, true);
-
+	bind_buffers();
 	glBindImageTexture(0, A->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, center_ssbo);
 
@@ -134,7 +133,7 @@ void Voxelizer::calculate_gravitycenter(shared_ptr<GameObject> A) {
 
 void Voxelizer::calculate_buoyancycenter(shared_ptr<GameObject> A) {
 	voxelize(A);
-
+	bind_buffers();
 	glBindImageTexture(0, A->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buoyance_ssbo);
 

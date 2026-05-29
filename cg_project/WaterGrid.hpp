@@ -134,7 +134,7 @@ public:
 			}
 		}
 	}
-	WaterGrid(int grid_resolution, vec3 size, shared_ptr<Texture> texture,int padding = 10) : grid_resolution(grid_resolution),padding(padding){
+	WaterGrid(int grid_resolution, vec3 size, shared_ptr<Texture> texture,int padding = 30) : grid_resolution(grid_resolution),padding(padding){
 		initialization();
 		updateGrid();
 

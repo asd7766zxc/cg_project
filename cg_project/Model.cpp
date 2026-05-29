@@ -1,26 +1,21 @@
 #include "Model.hpp"
-struct Vertex {
-	float x, y, z;
-};
 const int MXN = 1e6 + 5;
-Vertex positions[MXN];
-Vertex norms[MXN];
+float positions[MXN];
+//vertx norms[MXN];
 void Model::initializeBuffers() {
 	glGenBuffers(1, &EBO);
 	glGenBuffers(1, &VBO);
 	glGenVertexArrays(1, &VAO);
 
 	glGenBuffers(1, &triangles);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangles);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangles);
-
 	glGenBuffers(1, &normals);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, normals);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, normals);
-
 }
 Model::Model() {
 	initializeBuffers();
+}
+void Model::bind_buffer() {
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangles);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, normals);
 }
 Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_count) {
 	initializeBuffers();
@@ -56,38 +51,30 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 		bounding_box.y.adjust(y);
 		bounding_box.z.adjust(z);
 
-
-		positions[i].x = x;
-		positions[i].y = y;
-		positions[i].z = z;
-
-		norms[i].x = nx;
-		norms[i].y = ny;
-		norms[i].z = nz;
-
+		positions[i * 3 + 0] = x;
+		positions[i * 3 + 1] = y;
+		positions[i * 3 + 2] = z;
+		
 		// make mesh aabb
 	}
 
 	for (int i = 0; i < vertex_count; ++i) {
 		
 		// x -> x - mn -> (x - mn) / (mx - mn)
-		positions[i].x = (positions[i].x - mn) / (mx - mn); //[mn,mx] -> [0,mx-mn] -> 
-		positions[i].y = (positions[i].y - mn) / (mx - mn); 
-		positions[i].z = (positions[i].z - mn) / (mx - mn);
-
-		positions[i].x = 0.5; //[mn,mx] -> [0,mx-mn] -> 
-		positions[i].y = 0.5;
-		positions[i].z = 0.5;
+		positions[i * 3 + 0] = (positions[i * 3 + 0] - mn) / (mx - mn); //[mn,mx] -> [0,mx-mn] -> 
+		positions[i * 3 + 1] = (positions[i * 3 + 1] - mn) / (mx - mn); 
+		positions[i * 3 + 2] = (positions[i * 3 + 2] - mn) / (mx - mn);
 		// make mesh aabb
 	}
 	glBindVertexArray(0);
-
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangles);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Vertex) * vertex_count, positions, GL_DYNAMIC_READ);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, vertex_count * sizeof(float) * 3, positions, GL_DYNAMIC_READ);
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, normals);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Vertex) * vertex_count, norms, GL_DYNAMIC_READ);
+	//glBindBuffer(GL_SHADER_STORAGE_BUFFER, normals);
+	//glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vertx) * vertex_count, norms, GL_DYNAMIC_READ);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
+
 void Model::draw() {
 	if (vertex_count > 0) {
 		glBindVertexArray(VAO);

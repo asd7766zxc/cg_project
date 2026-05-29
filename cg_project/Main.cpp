@@ -495,9 +495,9 @@ signed main() {
 
 	PhysicsSolver physic_solver(voxelizer);
 
-		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(10), texture_yellow);
+		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(100), texture_yellow);
 	for (int i = 0; i < 1; ++i) {
-		moving_sphere->position = vec3(5, 20, 5);
+		moving_sphere->position = vec3(10, 5, 10);
 		moving_sphere->velocity = vec3(0, 0.1, 0);
 		moving_sphere->scale = vec3(0.5);
 		moving_sphere->mass = 157.08;
@@ -512,7 +512,7 @@ signed main() {
 
 	shared_ptr<GameObject> big_water_tank = make_shared<GameObject>(cube, texture_white);
 	float tank_size = 10.f;
-	water_grid = make_shared<WaterGrid>(100, vec3(tank_size, 5, tank_size), texture_blue);
+	water_grid = make_shared<WaterGrid>(130, vec3(tank_size, 5, tank_size), texture_blue);
 	water_grid->internal_object->position = vec3(0.0);
 	water_grid->internal_object->visible = false;
 	auto env_cam_pos = 0.5 * (water_grid->internal_object->scale - water_grid->internal_object->position);
@@ -572,7 +572,7 @@ signed main() {
 
 	const float dt = 1/60.0;
 
-	voxelizer->calculate_distance_field(moving_sphere);
+	voxelizer->calculate_distance_field(moving_teapot);
 
 	shader_program->use();
 	shader_program->setVec3("solid_color",vec3(1));
@@ -738,7 +738,7 @@ signed main() {
 				visualizer.draw_point(a.point, { 1,1,0,1 });
 				visualizer.draw_vector(a.normal * a.penetration, a.point, { 0,0,1,1 });
 			}
-			visualizer.draw_distance(moving_sphere);
+			visualizer.draw_distance(moving_teapot);
 			//visualizer.draw_point(mmpos, { 1,1,1,0.4 });
 		/*	visualizer.draw_point(world_mouse, {1,1,1,0.4});
 			visualizer.draw_vector(uni(far_world_mouse - world_mouse), world_mouse, {1,1,1,0.4});*/

@@ -15,7 +15,7 @@ uniform VoxelInfo voxelInfoA;
 
 layout(binding = 0, r32ui) uniform readonly uimage3D voxelA;
 
-layout(std430, binding = 3) buffer Center{
+layout(std430, binding = 0) buffer Center{
 	int cx;
 	int cy;
 	int cz;

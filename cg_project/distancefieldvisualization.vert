@@ -38,7 +38,7 @@ void main(){
 	
 	pos = pos + (scale * (vPos + vec3(0.5)));
 	pixelNorm = vNormal; //w/ no rotation so just output the vertex normal
-	pixelPos = (vPos + vec3(0.5));
+	pixelPos = (vPos + vec3(0.5)) * delta + ppos;
 	texCoord = (vPos + vec3(0.5)) * delta + ppos;
 	gl_Position = proj * view * vec4(pos,1.0);
 }

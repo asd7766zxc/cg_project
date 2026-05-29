@@ -54,7 +54,7 @@ public:
 
 		glGenTextures(1, &distanceTexture);
 		glBindTexture(GL_TEXTURE_3D, distanceTexture);
-		glTexStorage3D(GL_TEXTURE_3D, 1, GL_R32F, 64, 64, 64); // roundup z dimension
+		glTexStorage3D(GL_TEXTURE_3D, 1, GL_R32F, 256, 256, 256); // roundup z dimension
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //trilinear interpolation
 

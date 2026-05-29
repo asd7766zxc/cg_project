@@ -70,6 +70,7 @@ void main(){
 	vec3 V = normalize(view_position - pixelPos);
 	vec3 overall_light_color;
 	vec3 light_color;
+	float overall_shadow = 0.0;
 	for(int i = 0; i < POINT_LIGHTS_COUNT; ++i){
 		if(point_lights[i].enable == 0) continue;
 		vec3 L = normalize(point_lights[i].position - pixelPos);
@@ -88,6 +89,7 @@ void main(){
 		float attenuation = 1.0 / (a * x * x + b * x + c);
 	
 		float shadow = CalculateShadow(i);
+		overall_shadow += shadow;
 		attenuation = (1.0 - shadow) * attenuation;
 		light_color += material.ambient * ambient + material.emission;
 		overall_light_color += attenuation * (diffuse + specular);
@@ -97,6 +99,8 @@ void main(){
 		float mx = max(max(light_color.x,light_color.y),light_color.z);
 		if(mx >= 1) light_color /= mx;
 		color = texture(texture1, TexCoord) * vec4(light_color,1.0) * vec4(solid_color,1.0) * vec4(1,1,1,opacity); 	
+	}else{
+		color = vec4(vec3(1 - overall_shadow / POINT_LIGHTS_COUNT),1.0);
 	}
 	if(texture(texture2, TexCoord).g <= 0.5f && engraved == 1){
 		discard;
