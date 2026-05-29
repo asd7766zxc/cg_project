@@ -34,12 +34,17 @@ layout(std430, binding = 1) readonly buffer Approximate_Attribute{
 	int normal_z;
 
 	int voxel_count;
+
+	int nx, mx;
+	int ny, my;
+	int nz, mz;
 };
 
 layout(std430, binding = 2) buffer Penetration{
 	int max_penetrate;
 	int min_penetrate;
 };
+
 
 uniform int splitting;
 struct currentCenter{
@@ -87,6 +92,7 @@ void main(){
 			int dis = voxel_count * dot_int(coordA,normals) - dot_int(center,normals);
 			atomicMax(max_penetrate, dis);
 			atomicMin(min_penetrate, dis);
+
 		}
 	}
 

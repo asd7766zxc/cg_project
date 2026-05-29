@@ -90,5 +90,5 @@ void DynamicCubeMap::drawBuffer(std::function<void(shared_ptr<ShaderProgram>)> d
 		env_program->setMat4("spaceMatrices[" + std::to_string(i) + "]", env_camera->getMatrix());
 	}
 	env_program->setVec3("view_position", refract_model_position);
-	draw_scence(env_program);
+	//draw_scence(env_program);
 }

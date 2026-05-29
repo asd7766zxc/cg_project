@@ -22,7 +22,15 @@ public:
 		collision_detector = make_shared<CollisionDetector>(voxelizer);
 		g = make_shared<Gravity>(vec3(0, -9.8, 0));
 	}
-	void update(float dt,shared_ptr<WaterGrid> grid) {
+	void update(float dt,shared_ptr<WaterGrid> grid,bool paused) {
+		if (paused) {
+			for (auto& c : entity_list) c->update_aabb();
+			//for (auto& c : entity_list) voxelizer->voxelize(c);
+			collision_detector->update_grid(entity_list);
+
+			collision_detector->collision_solve_regular(entity_list);
+			return;
+		}
 		//add gravity
 		for (auto& c : entity_list) {
 			c->lastFrameAcceleration = vec3(0.0);
@@ -32,7 +40,7 @@ public:
 		}
 		for (auto& c : entity_list) c->integrate(dt);
 		for (auto& c : entity_list) c->update_aabb();
-		for (auto& c : entity_list) voxelizer->voxelize(c);
+		//for (auto& c : entity_list) voxelizer->voxelize(c);
 		collision_detector->update_grid(entity_list);
 		
 		collision_detector->collision_solve_regular(entity_list);

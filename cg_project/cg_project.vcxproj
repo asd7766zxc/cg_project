@@ -191,6 +191,9 @@
     <None Include="center_calculator.comp" />
     <None Include="collision.comp" />
     <None Include="collision_attribute.comp" />
+    <None Include="distancefieldvisualization.frag" />
+    <None Include="distancefieldvisualization.vert" />
+    <None Include="distance_field.comp" />
     <None Include="env.frag" />
     <None Include="env.geom" />
     <None Include="env.vert" />

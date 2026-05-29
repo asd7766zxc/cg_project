@@ -24,10 +24,13 @@ public:
 	shared_ptr<aabb> bounding_box;
 	shared_ptr<Model> model;
 	shared_ptr<Texture> texture;
+	
 
 	voxelspace voxel_info;
+	voxelspace df_info;
 	GLuint voxelTexture;
 	GLuint collisionVisualizeTexture;
+	GLuint distanceTexture;
 
 	GameObject(shared_ptr<Model> mesh, shared_ptr<Texture> texture, vec3 position = vec3(0, 0, 0), vec3 scale = vec3(1, 1, 1), vec3 rotation = vec3(0, 0, 0))
 		: model(mesh), texture(texture), position(position), scale(scale) {
@@ -48,6 +51,17 @@ public:
 		glTexStorage3D(GL_TEXTURE_3D, 1, GL_R32UI, 256, 256, 256 / 32); // roundup z dimension
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+		glGenTextures(1, &distanceTexture);
+		glBindTexture(GL_TEXTURE_3D, distanceTexture);
+		glTexStorage3D(GL_TEXTURE_3D, 1, GL_R32F, 64, 64, 64); // roundup z dimension
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //trilinear interpolation
+
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
 	}
 
 	void update_aabb(bool onlyscaling = false) {

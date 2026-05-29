@@ -6,14 +6,24 @@ public:
 	shared_ptr<ShaderProgram> voxelizer;
 	shared_ptr<ShaderProgram> gravitycenter_compute;
 	shared_ptr<ShaderProgram> buoyancycenter_compute;
+	shared_ptr<ShaderProgram> distance_field_compute;
 
+	GLuint voxelize_fbo;
 	GLuint center_ssbo;
 	GLuint buoyance_ssbo;
 
 	const int voxel_size_p = 5;
 	const int voxel_size_q = 100;
 	float voxel_size = float(voxel_size_p) / voxel_size_q;
+
+	const int df_voxel_dim = 64;
 	Voxelizer() {
+		glGenFramebuffers(1, &voxelize_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, voxelize_fbo);
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 		glGenBuffers(1, &center_ssbo);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, center_ssbo);
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, center_ssbo); // the center buffer is on binding 3
@@ -37,9 +47,15 @@ public:
 			(vector<shared_ptr<Shader>>{
 			make_shared<Shader>("buoyancy_center.comp", GL_COMPUTE_SHADER)
 		});
+
+		distance_field_compute = make_shared<ShaderProgram>
+			(vector<shared_ptr<Shader>>{
+			make_shared<Shader>("distance_field.comp", GL_COMPUTE_SHADER)
+		});
 	}
 	//proxy style
 	void voxelize(shared_ptr<GameObject> A, bool onlyscaling = false);
+	void calculate_distance_field(shared_ptr<GameObject> A);
 	void calculate_gravitycenter(shared_ptr<GameObject> A);
 	void calculate_tensorOfInertia(shared_ptr<GameObject> A);
 	void calculate_buoyancycenter(shared_ptr<GameObject> A);

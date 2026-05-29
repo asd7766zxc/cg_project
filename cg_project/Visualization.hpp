@@ -11,6 +11,7 @@ public:
 	shared_ptr<ShaderProgram> voxel_visualizer_program;
 	shared_ptr<ShaderProgram> aabb_visualizer_program;
 	shared_ptr<ShaderProgram> solid_color_program;
+	shared_ptr<ShaderProgram> df_visualizer_program;
 	shared_ptr<Camera> camera;
 
 	Visualization(shared_ptr<Camera> _camera) : camera(_camera) {
@@ -30,6 +31,12 @@ public:
 			(vector<shared_ptr<Shader>>{
 			make_shared<Shader>("solidcolor.vert", GL_VERTEX_SHADER),
 				make_shared<Shader>("solidcolor.frag", GL_FRAGMENT_SHADER)
+		});
+
+		df_visualizer_program = make_shared<ShaderProgram>
+			(vector<shared_ptr<Shader>>{
+			make_shared<Shader>("distancefieldvisualization.vert", GL_VERTEX_SHADER),
+				make_shared<Shader>("distancefieldvisualization.frag", GL_FRAGMENT_SHADER)
 		});
 	}
 
@@ -125,6 +132,29 @@ public:
 		glBindVertexArray(0);
 		glEnable(GL_DEPTH_TEST);
 	}
+	static void draw_distance(shared_ptr<GameObject> obj, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh) {
+		glDisable(GL_DEPTH_TEST);
+		visualizer->use();
+		visualizer->setMat4("proj", camera->proj);
+		visualizer->setMat4("view", camera->view);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_3D, obj->distanceTexture);
+
+		visualizer->use();
+		glBindVertexArray(cube_mesh->VAO);
+		int voxel_count = obj->voxel_info.dim_x * obj->voxel_info.dim_y * obj->voxel_info.dim_z;
+		visualizer->setInt("xdim", obj->voxel_info.dim_x);
+		visualizer->setInt("ydim", obj->voxel_info.dim_y);
+		visualizer->setInt("zdim", obj->voxel_info.dim_z);
+		visualizer->setVec3("box_dimension", obj->voxel_info.box);
+		visualizer->setFloat("voxel_size", obj->voxel_info.voxel_size);
+		visualizer->setVec3("box_corner_pos", obj->voxel_info.box_corner);
+
+		glDrawArraysInstanced(GL_TRIANGLES, 0, cube_mesh->vertex_count, voxel_count);
+		glBindVertexArray(0);
+		glEnable(GL_DEPTH_TEST);
+	}
 
 	static void draw_aabb(aabb bb, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh) {
 		visualizer->use();
@@ -159,6 +189,9 @@ public:
 	}
 	void draw_voxel_collision(shared_ptr<GameObject> obj) {
 		Visualization::draw_voxel_collision(obj, voxel_visualizer_program, camera, cube);
+	}
+	void draw_distance(shared_ptr<GameObject> obj) {
+		Visualization::draw_distance(obj, df_visualizer_program, camera, cube);
 	}
 	void draw_aabb(aabb bb) {
 		//TODO: draw the axis only

@@ -27,6 +27,10 @@ public:
 		int normal_z = 0;
 
 		int voxel_count = 0;
+
+		int nx = INT_MAX, mx = INT_MIN;
+		int ny = INT_MAX, my = INT_MIN;
+		int nz = INT_MAX, mz = INT_MIN;
 	};
 
 	struct collision_split {
@@ -44,7 +48,7 @@ public:
 		int max_penetration = 0;
 		int min_penetration = 0;
 	};
-
+	Camera camera;
 	static const unsigned int REGULAR_DIVISION = 20;
 	static const int voxel_splitting_limit = 100;
 	const float scence_size = 50.0f;
@@ -88,10 +92,13 @@ public:
 	shared_ptr<ShaderProgram> collision_program;
 	shared_ptr<ShaderProgram> collision_attribute_program;
 	shared_ptr<ShaderProgram> collision_splitting_program;
+	shared_ptr<ShaderProgram> distance_program;
 	shared_ptr<Voxelizer> voxelizer;
 	vector<contact_attribute> collisions;
 	GLuint ssbo[3];
 
+	GLuint distance_map,distance_fbo;
+	const int raterizer_resolution = 100;
 	CollisionDetector(shared_ptr<Voxelizer> voxelizer) : voxelizer(voxelizer) {
 		collision_program = make_shared<ShaderProgram>
 			(vector<shared_ptr<Shader>>{
@@ -108,6 +115,12 @@ public:
 			make_shared<Shader>("voxel_split_center.comp", GL_COMPUTE_SHADER)
 		});
 
+		/*distance_program = make_shared<ShaderProgram>
+			(vector<shared_ptr<Shader>>{
+			make_shared<Shader>("distance_map.comp", GL_COMPUTE_SHADER),
+			make_shared<Shader>("distance_map.frag", GL_VERTEX_SHADER),
+			make_shared<Shader>("distance_map.vert", GL_FRAGMENT_SHADER)
+		});*/
 
 		glGenBuffers(1, &ssbo[0]);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[0]);
@@ -120,6 +133,23 @@ public:
 		glGenBuffers(1, &ssbo[2]);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, ssbo[2]);
+
+		glGenTextures(1, &distance_map);
+		glBindTexture(GL_TEXTURE_2D, distance_map);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexImage2D(distance_map, 0, GL_DEPTH_COMPONENT, raterizer_resolution, raterizer_resolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+		glGenFramebuffers(1, &distance_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, distance_fbo);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, distance_fbo, 0);
+
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 
 	collision_attribute zero;
@@ -229,7 +259,10 @@ public:
 			spliting(a, b, &att,waterflag,draw_result_onB,0);
 		}
 	};
-
+	void resolve_penetration_raster(shared_ptr<GameObject> a, shared_ptr<GameObject> b,vec3 normal) {
+		
+		//build a camera toward another object, and using fragment depth as 
+	}
 	void spliting(shared_ptr<GameObject> a, shared_ptr<GameObject> b, collision_attribute *attributes,bool waterflag,bool draw_result_onB,int index) {
 		// integer points are corners need to move to center
 		vec3 collision_p = vec3(attributes->point_x, attributes->point_y, attributes->point_z) * (1.0 / attributes->voxel_count) * voxelizer->voxel_size + a->voxel_info.box_corner + vec3(voxelizer->voxel_size / 2.0);
@@ -242,7 +275,7 @@ public:
 			attributes->normal_y *= -1;
 			attributes->normal_z *= -1;
 		}
-
+		resolve_penetration_raster(a, b, contact_normal);
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(collision_distance), &zero1, GL_DYNAMIC_READ);
 

@@ -41,6 +41,10 @@ layout(std430, binding = 1) buffer Approximate_Attribute{
 	int normal_z;
 
 	int voxel_count;
+
+	int nx, mx;
+	int ny, my;
+	int nz, mz;
 };
 int occupied(ivec3 v){
 	if(v.x >= voxelInfoA.dimx || v.y >= voxelInfoA.dimy || v.z >= voxelInfoA.dimz) return 0;
@@ -86,6 +90,14 @@ void main(){
 
 			// get the local normal (3x3x3 central difference)
 			ivec3 coordA = ivec3(voxelCoordA.xy, z);
+
+			atomicMax(mx,coordA.x);
+			atomicMax(my,coordA.y);
+			atomicMax(mz,coordA.z);
+
+			atomicMin(nx,coordA.x);
+			atomicMin(ny,coordA.y);
+			atomicMin(nz,coordA.z);
 
 			atomicAdd(normal_x,(occupied(coordA + ivec3(1,0,0)) - occupied(coordA + ivec3(-1,0,0))));
 			atomicAdd(normal_y,(occupied(coordA + ivec3(0,1,0)) - occupied(coordA + ivec3(0,-1,0))));

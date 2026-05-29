@@ -57,6 +57,7 @@ void Voxelizer::voxelize(shared_ptr<GameObject> A, bool onlyscaling) {
 	voxel_info.dim_z = z_depth;
 	voxel_info.box_corner = vec3(l, b, n);
 	voxel_info.box = vec3(x_dimen, y_dimen, z_depth) * voxel_size;
+
 	voxelizer->use();
 	voxelizer->setMat4("proj", mat4::ortho(l, vr, b, vt, n, vf));
 	voxelizer->setMat4("model", onlyscaling ? mat4::scale(A->scale) : A->localToWorld());
@@ -68,8 +69,10 @@ void Voxelizer::voxelize(shared_ptr<GameObject> A, bool onlyscaling) {
 	//bind to image unit 0
 	glBindImageTexture(0, A->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
 	glViewport(0, 0, x_dimen, y_dimen);
-	A->model->draw();
 
+	//glBindFramebuffer(GL_FRAMEBUFFER, voxelize_fbo);
+	A->model->draw();
+	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
 
@@ -81,6 +84,18 @@ void Voxelizer::voxelize(shared_ptr<GameObject> A, bool onlyscaling) {
 	glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, x_dimen, y_dimen, (z_depth + 31) / 32, GL_RED_INTEGER, GL_UNSIGNED_BYTE, empty_voxel_grid);
 }
 
+void Voxelizer::calculate_distance_field(shared_ptr<GameObject> A) {
+	distance_field_compute->use();
+	distance_field_compute->setInt("df_resolution", df_voxel_dim);
+	distance_field_compute->setInt("vertex_count", A->model->vertex_count);
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, A->model->triangles);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, A->model->normals);
+	glBindTexture(GL_TEXTURE_3D, A->distanceTexture);
+	glBindImageTexture(0, A->distanceTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32F);
+	glDispatchCompute((df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8);
+	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+}
 
 struct ivec3 {
 	int x = 0;
