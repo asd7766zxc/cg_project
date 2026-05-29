@@ -132,7 +132,7 @@ public:
 		glBindVertexArray(0);
 		glEnable(GL_DEPTH_TEST);
 	}
-	static void draw_distance(shared_ptr<GameObject> obj, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh) {
+	static void draw_distance(shared_ptr<GameObject> obj, shared_ptr<ShaderProgram> visualizer, shared_ptr<Camera> camera, shared_ptr<Model> cube_mesh,float slice) {
 		//glDisable(GL_DEPTH_TEST);
 		visualizer->use();
 		visualizer->setMat4("proj", camera->proj);
@@ -143,13 +143,14 @@ public:
 
 		visualizer->use();
 		glBindVertexArray(cube_mesh->VAO);
-		int voxel_count = 1;
+		int voxel_count = 1 * 1 * 1;
+		visualizer->setFloat("slice",-slice);
 		visualizer->setInt("xdim", 1);
 		visualizer->setInt("ydim", 1);
 		visualizer->setInt("zdim", 1);
-		visualizer->setVec3("box_dimension", vec3(1.0f));
-		visualizer->setFloat("voxel_size", 1.0f);
-		visualizer->setVec3("box_corner_pos", obj->voxel_info.box_corner);
+		visualizer->setVec3("box_dimension", vec3(4.0f));
+		visualizer->setFloat("voxel_size", 4.0f);
+		visualizer->setVec3("box_corner_pos", vec3(-6,-6,-6));
 
 		glDrawArraysInstanced(GL_TRIANGLES, 0, cube_mesh->vertex_count, voxel_count);
 		glBindVertexArray(0);
@@ -190,8 +191,8 @@ public:
 	void draw_voxel_collision(shared_ptr<GameObject> obj) {
 		Visualization::draw_voxel_collision(obj, voxel_visualizer_program, camera, cube);
 	}
-	void draw_distance(shared_ptr<GameObject> obj) {
-		Visualization::draw_distance(obj, df_visualizer_program, camera, cube);
+	void draw_distance(shared_ptr<GameObject> obj,float slice = 0.0f) {
+		Visualization::draw_distance(obj, df_visualizer_program, camera, cube,slice);
 	}
 	void draw_aabb(aabb bb) {
 		//TODO: draw the axis only

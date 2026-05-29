@@ -120,12 +120,6 @@ public:
 			make_shared<Shader>("voxel_split_center.comp", GL_COMPUTE_SHADER)
 		});
 
-		/*distance_program = make_shared<ShaderProgram>
-			(vector<shared_ptr<Shader>>{
-			make_shared<Shader>("distance_map.comp", GL_COMPUTE_SHADER),
-			make_shared<Shader>("distance_map.frag", GL_VERTEX_SHADER),
-			make_shared<Shader>("distance_map.vert", GL_FRAGMENT_SHADER)
-		});*/
 
 		glGenBuffers(1, &ssbo[0]);
 		glGenBuffers(1, &ssbo[1]);

@@ -1,7 +1,7 @@
 #include "Model.hpp"
 const int MXN = 1e6 + 5;
 float positions[MXN];
-//vertx norms[MXN];
+float norms[MXN];
 void Model::initializeBuffers() {
 	glGenBuffers(1, &EBO);
 	glGenBuffers(1, &VBO);
@@ -54,8 +54,27 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 		positions[i * 3 + 0] = x;
 		positions[i * 3 + 1] = y;
 		positions[i * 3 + 2] = z;
-		
+
 		// make mesh aabb
+	}
+	for (int i = 0; i < vertex_count; i += 9) {
+		auto v0 = vec3(&positions[(i + 0) * 3]);
+		auto v1 = vec3(&positions[(i + 1) * 3]);
+		auto v2 = vec3(&positions[(i + 2) * 3]);
+
+		auto norm = uni((v1 - v0) ^ (v2 - v1));
+		
+		float nx = vertices[i * 8 + 3];
+		float ny = vertices[i * 8 + 4];
+		float nz = vertices[i * 8 + 5];
+		vec3 ori_norm = vec3(nx, ny, nz);
+		if (ori_norm * norm < 0) {
+			norm = -norm;
+		}
+
+		norms[(i / 9) * 3 + 0] = nx;
+		norms[(i / 9) * 3 + 1] = ny;
+		norms[(i / 9) * 3 + 2] = nz;
 	}
 
 	for (int i = 0; i < vertex_count; ++i) {
@@ -66,12 +85,14 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 		positions[i * 3 + 2] = (positions[i * 3 + 2] - mn) / (mx - mn);
 		// make mesh aabb
 	}
+
+
 	glBindVertexArray(0);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangles);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, vertex_count * sizeof(float) * 3, positions, GL_DYNAMIC_READ);
 
-	//glBindBuffer(GL_SHADER_STORAGE_BUFFER, normals);
-	//glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vertx) * vertex_count, norms, GL_DYNAMIC_READ);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, normals);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, vertex_count * sizeof(float), norms, GL_DYNAMIC_READ);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 

@@ -495,7 +495,7 @@ signed main() {
 
 	PhysicsSolver physic_solver(voxelizer);
 
-		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(100), texture_yellow);
+		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(10), texture_yellow);
 	for (int i = 0; i < 1; ++i) {
 		moving_sphere->position = vec3(10, 5, 10);
 		moving_sphere->velocity = vec3(0, 0.1, 0);
@@ -550,7 +550,7 @@ signed main() {
 	//physic_solver.add_entity(moving_sphere);
 	physic_solver.add_entity(moving_cube);
 	physic_solver.add_entity(water_grid->internal_object);
-	physic_solver.add_entity(moving_teapot);
+	physic_solver.add_entity(moving_sphere);
 
 	for (int dx = 1; dx >= -1; --dx) {
 		for (int dy = 1; dy >= -1; --dy) {
@@ -738,7 +738,8 @@ signed main() {
 				visualizer.draw_point(a.point, { 1,1,0,1 });
 				visualizer.draw_vector(a.normal * a.penetration, a.point, { 0,0,1,1 });
 			}
-			visualizer.draw_distance(moving_teapot);
+			
+			visualizer.draw_distance(moving_teapot,(sin(glfwGetTime() / 2.0f) + 1.0f) / 2.0f);
 			//visualizer.draw_point(mmpos, { 1,1,1,0.4 });
 		/*	visualizer.draw_point(world_mouse, {1,1,1,0.4});
 			visualizer.draw_vector(uni(far_world_mouse - world_mouse), world_mouse, {1,1,1,0.4});*/
