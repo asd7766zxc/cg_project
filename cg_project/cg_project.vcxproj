@@ -194,6 +194,7 @@
     <None Include="distancefieldvisualization.frag" />
     <None Include="distancefieldvisualization.vert" />
     <None Include="distance_field.comp" />
+    <None Include="distance_field_gradient.comp" />
     <None Include="env.frag" />
     <None Include="env.geom" />
     <None Include="env.vert" />

@@ -11,13 +11,16 @@ public:
 		if (contact.A->hasInifiniteMass()) {
 			// swap A B 
 			swap(contact.A, contact.B);
-			contact.normal = -contact.normal; // the normal is originally in A's perspective
+			std::swap(contact.data.Na, contact.data.Nb);
+			std::swap(contact.data.Pa, contact.data.Pb);
+			std::swap(contact.data.Sa, contact.data.Sb);
+
 		}
 		
 		float restitution = 0.0f;
 
-		auto cnormal = -contact.normal; //the normal is A to B (change to (B to A))  // 假裝是 B 往 A 撞 (A's persepective)
-		auto cpos = contact.point;
+		auto cnormal = contact.data.Na; //the normal is A to B (change to (B to A))  // 假裝是 B 往 A 撞 (A's persepective)
+		auto cpos = contact.data.Pa;
 		auto A = contact.A;
 		auto B = contact.B;
 
@@ -75,15 +78,17 @@ public:
 		if (contact.A->hasInifiniteMass()) {
 			// swap A B 
 			swap(contact.A, contact.B);
-			contact.normal = -contact.normal; // the normal is originally in A's perspective
+			std::swap(contact.data.Na, contact.data.Nb);
+			std::swap(contact.data.Pa, contact.data.Pb);
+			std::swap(contact.data.Sa, contact.data.Sb);
 		}
 
 
-		auto cnormal = -contact.normal; //the normal is A to B (change to (B to A))  // 假裝是 B 往 A 撞 (A's persepective)
-		auto cpos = contact.point;
+		auto cnormal = contact.data.Na; //the normal is A to B (change to (B to A))  // 假裝是 B 往 A 撞 (A's persepective)
+		auto cpos = contact.data.Pa;
 		auto A = contact.A;
 		auto B = contact.B;
-		float penetration = contact.penetration;
+		float penetration = abs(contact.data.Pa - contact.data.Sa); // relaxation
 		auto contact_coord = mat4::axisAsX(cnormal); // to world
 		auto to_contact = mat4::axisAsX(cnormal).transposed();
 

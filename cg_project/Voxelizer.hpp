@@ -54,6 +54,7 @@ public:
 	}
 	//proxy style
 	void voxelize(shared_ptr<GameObject> A, bool onlyscaling = false);
+	bool read_distace_field_cache(shared_ptr<GameObject> A);
 	void calculate_distance_field(shared_ptr<GameObject> A);
 	void calculate_gravitycenter(shared_ptr<GameObject> A);
 	void calculate_tensorOfInertia(shared_ptr<GameObject> A);

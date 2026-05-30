@@ -59,6 +59,8 @@ const int mx_time_record = 100000;
 int time_steps = 0;
 int cur_time = 0;
 int time_front = 0;
+
+bool show_imgui = true;
 vector<GameObject> obj_states[mx_time_record];
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (key == GLFW_KEY_E && action == GLFW_PRESS){
@@ -82,6 +84,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		exit(0);
+	}
+	if(key == GLFW_KEY_G && action == GLFW_PRESS){
+		show_imgui = !show_imgui;
 	}
 	
 }
@@ -184,6 +189,7 @@ bool split_window = false;
 int mx_time_front = 0;
 shared_ptr<WaterGrid> water_grid;
 void render_ui(float fps) {
+	if (!show_imgui) return;
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
@@ -267,9 +273,9 @@ void onResize(GLFWwindow* window, int width, int height) {
 signed main() {
 
 	camera = make_shared<Camera>();
-	camera->position = vec3(-3,6,2);
-	camera->yx = 0.75;
-	camera->rx = -0.75;
+	camera->position = vec3(-4,-4,-0.5);
+	camera->yx = 0;
+	camera->rx = 0;
 	camera->windowResize(window_width, window_height);
 
 #pragma region WindowInitialization
@@ -324,12 +330,12 @@ signed main() {
 	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity,
+	/*glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity,
 		GLsizei length, const GLchar* message, const void* userParam) {
 			fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
 				(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
 				type, severity, message);
-		}, 0);
+		}, 0);*/
 
 	shared_ptr<ShaderProgram> shader_program = make_shared<ShaderProgram>
 		(vector<shared_ptr<Shader>>{ 
@@ -495,8 +501,10 @@ signed main() {
 
 	PhysicsSolver physic_solver(voxelizer);
 
-		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(MeshBuilder::Sphere(10), texture_yellow);
-	for (int i = 0; i < 1; ++i) {
+	auto sphere_mesh = MeshBuilder::Sphere(10);
+	for (int i = 0; i < 2; ++i) {
+
+		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(sphere_mesh, texture_yellow);
 		moving_sphere->position = vec3(10, 5, 10);
 		moving_sphere->velocity = vec3(0, 0.1, 0);
 		moving_sphere->scale = vec3(0.5);
@@ -538,19 +546,17 @@ signed main() {
 
 	moving_metal_cube->mass = 2000;
 	moving_metal_cube->position = vec3(-2, 5, -2);
-	moving_metal_cube->scale = vec3(0.3f, 0.3f, 0.3f);
+	moving_metal_cube->scale = vec3(1.0f);
 
 	moving_teapot->position = vec3(5,20,5);
 	moving_teapot->scale = vec3(0.5);
 	moving_teapot->mass = 200;
-	//moving_teapot->
 
 	
 	physic_solver.add_entity(moving_metal_cube);
-	//physic_solver.add_entity(moving_sphere);
 	physic_solver.add_entity(moving_cube);
 	physic_solver.add_entity(water_grid->internal_object);
-	physic_solver.add_entity(moving_sphere);
+	physic_solver.add_entity(moving_teapot);
 
 	for (int dx = 1; dx >= -1; --dx) {
 		for (int dy = 1; dy >= -1; --dy) {
@@ -571,8 +577,6 @@ signed main() {
 	physic_solver.add_entity(wallN);
 
 	const float dt = 1/60.0;
-
-	voxelizer->calculate_distance_field(moving_teapot);
 
 	shader_program->use();
 	shader_program->setVec3("solid_color",vec3(1));
@@ -732,14 +736,18 @@ signed main() {
 			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel_collision(a);
 			if (view_aabb) for (auto& a : physic_solver.entity_list) visualizer.draw_aabb(*(a->bounding_box));
 			if(view_points) for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
-			if(view_collision) for (auto& a : physic_solver.collision_detector->collisions) {
+			for (auto& a : physic_solver.collision_detector->collisions) {
 				//if (a.inwater) continue;
-				visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
-				visualizer.draw_point(a.point, { 1,1,0,1 });
-				visualizer.draw_vector(a.normal * a.penetration, a.point, { 0,0,1,1 });
+				if (view_collision) visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
+				//visualizer.draw_point(a.point, { 1,1,0,1 });
+				visualizer.draw_vector(a.data.Na * abs(a.data.Pa - a.data.Sa), a.data.Pa, {0,0,1,1});
+				visualizer.draw_point(a.data.Pa, { 1,1,0,1 });
+
+				visualizer.draw_vector(a.data.Nb * abs(a.data.Pb - a.data.Sb), a.data.Pb, { 0,1,1,1 });
+				visualizer.draw_point(a.data.Pb, { 0,1,0,1 });
 			}
 			
-			visualizer.draw_distance(moving_teapot,(sin(glfwGetTime() / 2.0f) + 1.0f) / 2.0f);
+			visualizer.draw_distance(moving_cube,0.5);
 			//visualizer.draw_point(mmpos, { 1,1,1,0.4 });
 		/*	visualizer.draw_point(world_mouse, {1,1,1,0.4});
 			visualizer.draw_vector(uni(far_world_mouse - world_mouse), world_mouse, {1,1,1,0.4});*/

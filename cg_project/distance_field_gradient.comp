@@ -1,0 +1,139 @@
+#version 430 core
+
+// single invocation
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+//working in A's LCS
+uniform mat4 AtoB;
+uniform float BtoA_scaling;
+layout(binding = 0) uniform sampler3D df_A;
+layout(binding = 1) uniform sampler3D df_B;
+layout(std430,binding = 7) buffer contact_data{
+	vec3 cp;
+	vec3 Pa;
+	vec3 Pb;
+	vec3 Na;
+	vec3 Nb;
+	vec3 Sa;
+	vec3 Sb;
+	vec3 collide;
+};
+float h = 1e-3; // for central difference 
+
+float D_A(vec3 pos){
+	return texture(df_A, pos).r;
+}
+
+float D_B(vec3 pos){
+	pos = (AtoB * vec4(pos,1)).xyz;
+	return BtoA_scaling * texture(df_B, pos).r;
+}
+
+vec3 grad_A(vec3 pos){
+	float x = pos.x;
+	float y = pos.y;
+	float z = pos.z;
+
+	float dx = (D_A(vec3(x+h,y,z)) - D_A(vec3(x-h,y,z))) / (2*h);
+	float dy = (D_A(vec3(x,y+h,z)) - D_A(vec3(x,y-h,z))) / (2*h);
+	float dz = (D_A(vec3(x,y,z+h)) - D_A(vec3(x,y,z-h))) / (2*h);
+	return normalize(vec3(dx,dy,dz));
+}
+
+vec3 grad_B(vec3 pos){
+	float x = pos.x;
+	float y = pos.y;
+	float z = pos.z;
+
+	float dx = (D_B(vec3(x+h,y,z)) - D_B(vec3(x-h,y,z))) / (2*h);
+	float dy = (D_B(vec3(x,y+h,z)) - D_B(vec3(x,y-h,z))) / (2*h);
+	float dz = (D_B(vec3(x,y,z+h)) - D_B(vec3(x,y,z-h))) / (2*h);
+	return normalize(vec3(dx,dy,dz));
+}
+
+//4.3 equation (8)
+vec3 projToA(vec3 pos){
+	vec3 gA = grad_A(pos);
+	float Da = D_A(pos);
+	return pos - Da * gA;
+}
+
+vec3 projToB(vec3 pos){
+	vec3 gB = grad_B(pos);
+	float Db = D_B(pos);
+	return pos - Db * gB;
+}
+
+float step_size = 0.0005;
+uniform float epsilon;
+uniform int max_interation;
+uniform vec3 initialPoint;
+
+float infiniteNorm(vec3 x){
+	return max(max(abs(x.x),abs(x.y)),abs(x.z));
+}
+vec3 interateGradient(vec3 x0){
+	vec3 xi = x0;
+	vec3 nx = vec3(1e38f,1e38f,1e38f);
+	float s = step_size;
+	int t = 0;
+	while((D_A(xi) > 0 || D_B(xi) > 0) && infiniteNorm(nx - xi) > epsilon && t < max_interation){
+		if(D_A(xi) > 0)
+			nx = projToA(xi);
+		else{
+			vec3 gB = grad_B(xi);
+			nx = xi - s * gB;
+		}
+		t++;
+		xi = nx;
+	}
+	return xi;
+}
+vec3 findContactPointA(vec3 x0){
+	vec3 xi = x0;
+	vec3 nx = vec3(1e38f,1e38f,1e38f);
+	float s = step_size;
+	int t = 0;
+	while((D_A(xi) <= 0 && D_B(xi) <= 0) && infiniteNorm(nx - xi) > epsilon && t < max_interation){
+		vec3 gB = grad_B(xi);
+		nx = xi - s * gB;
+		if(D_A(nx) > 0)
+			nx = projToA(nx);
+		t++;
+		xi = nx;
+	}
+	return xi;
+}
+vec3 findContactPointB(vec3 x0){
+	vec3 xi = x0;
+	vec3 nx = vec3(1e38f,1e38f,1e38f);
+	float s = step_size;
+	int t = 0;
+	while((D_A(xi) <= 0 && D_B(xi) <= 0) && infiniteNorm(nx - xi) > epsilon && t < max_interation){
+		vec3 gA = grad_A(xi);
+		nx = xi - s * gA;
+		if(D_B(nx) > 0)
+			nx = projToB(nx);
+		t++;
+		xi = nx;
+	}
+	return xi;
+}
+void main(){
+	vec3 contact_point = interateGradient(initialPoint);
+	cp = contact_point;
+	if(D_A(contact_point) > 0 || D_B(contact_point) > 0){
+		collide.x = 100.0f;
+		return;
+	}else{
+		collide.x = 0.0f;
+	}
+	Pa = findContactPointA(contact_point);
+	Pb = findContactPointB(contact_point);
+
+	Na = grad_B(Pa); // toward B
+	Nb = grad_A(Pb); // toward A
+
+	Sa = Na * abs(D_B(Pa)) + Pa;
+	Sb = Nb * abs(D_A(Pb)) + Pb;
+}

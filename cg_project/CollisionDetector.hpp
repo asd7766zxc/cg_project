@@ -4,6 +4,20 @@
 #include "Vec.hpp"
 
 // the point and normal will be in object A, so push the b toward normal
+struct df_data {
+	vec3 cp;
+	
+	vec3 Pa;
+	vec3 Pb;
+
+	vec3 Na;
+	vec3 Nb;
+
+	vec3 Sa;
+	vec3 Sb;
+
+	vec3 collide;
+};
 struct contact_attribute {
 	shared_ptr<GameObject> A, B;
 	vec3 normal;
@@ -14,6 +28,7 @@ struct contact_attribute {
 	int voxel_count = 0;
 	bool inwater = false;
 	bool draw_onB = false;
+	df_data data;
 };
 class CollisionDetector {
 public:
@@ -93,16 +108,19 @@ public:
 	shared_ptr<ShaderProgram> collision_attribute_program;
 	shared_ptr<ShaderProgram> collision_splitting_program;
 	shared_ptr<ShaderProgram> distance_program;
+	shared_ptr<ShaderProgram> distance_field_program;
+
 	shared_ptr<Voxelizer> voxelizer;
 	vector<contact_attribute> collisions;
-	GLuint ssbo[3];
+	GLuint ssbo[4];
 
 	GLuint distance_map,distance_fbo;
 	const int raterizer_resolution = 100;
 	void bind_buffers() {
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo[0]);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1]);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo[2]);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, ssbo[0]);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, ssbo[1]);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, ssbo[2]);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, ssbo[3]);
 	}
 	CollisionDetector(shared_ptr<Voxelizer> voxelizer) : voxelizer(voxelizer) {
 		collision_program = make_shared<ShaderProgram>
@@ -119,11 +137,15 @@ public:
 			(vector<shared_ptr<Shader>>{
 			make_shared<Shader>("voxel_split_center.comp", GL_COMPUTE_SHADER)
 		});
-
+		distance_field_program = make_shared<ShaderProgram>
+			(vector<shared_ptr<Shader>>{
+			make_shared<Shader>("distance_field_gradient.comp", GL_COMPUTE_SHADER)
+		});
 
 		glGenBuffers(1, &ssbo[0]);
 		glGenBuffers(1, &ssbo[1]);
 		glGenBuffers(1, &ssbo[2]);
+		glGenBuffers(1, &ssbo[3]);
 
 		glGenTextures(1, &distance_map);
 		glBindTexture(GL_TEXTURE_2D, distance_map);
@@ -251,9 +273,48 @@ public:
 			spliting(a, b, &att,waterflag,draw_result_onB,0);
 		}
 	};
-	void resolve_penetration_raster(shared_ptr<GameObject> a, shared_ptr<GameObject> b,vec3 normal) {
+	df_data contact_generate_distance_field(shared_ptr<GameObject> a, shared_ptr<GameObject> b ,vec3 collision_p) {
+		// working in A's LCS
+		collision_p = (a->model->meshToField() * a->worldToLocal() * vec4(collision_p, 1.0f)).toVec3();
+		//from A's field to B's field
+		mat4 AtoB = b->model->meshToField() * b->worldToLocal() * a->localToWorld() * a->model->fieldToMesh();
+		distance_field_program->use();
+		distance_field_program->setMat4("AtoB", AtoB);
+		distance_field_program->setFloat("BtoA_scaling", (b->model->box_size * b->scale.x) / (a->model->box_size * a->scale.x));
+		distance_field_program->setFloat("epsilon",1e-7);
+		distance_field_program->setVec3("initialPoint", collision_p);
+		distance_field_program->setInt("max_interation", 100);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_3D, a->distanceTexture);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_3D, b->distanceTexture);
+
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[3]);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(df_data), NULL, GL_DYNAMIC_READ);
+
+		glDispatchCompute(1, 1, 1);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+		df_data* data = (df_data*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+		if (data->collide.x > 10.0f) {
+			return *data;
+		}
+		auto toWorld = a->localToWorld() * a->model->fieldToMesh();
+		data->Na = uni((toWorld * vec4(data->Na, 0)).toVec3());
+		data->Nb = uni((toWorld * vec4(data->Nb, 0)).toVec3());
 		
-		//build a camera toward another object, and using fragment depth as 
+		data->cp = (toWorld * vec4(data->cp, 1)).toVec3();
+		
+		data->Pa = (toWorld * vec4(data->Pa, 1)).toVec3();
+		data->Pb = (toWorld * vec4(data->Pb, 1)).toVec3();
+
+
+		data->Sa = (toWorld * vec4(data->Sa, 1)).toVec3();
+		data->Sb = (toWorld * vec4(data->Sb, 1)).toVec3();
+		return *data;
+
 	}
 	void spliting(shared_ptr<GameObject> a, shared_ptr<GameObject> b, collision_attribute *attributes,bool waterflag,bool draw_result_onB,int index) {
 		// integer points are corners need to move to center
@@ -267,7 +328,10 @@ public:
 			attributes->normal_y *= -1;
 			attributes->normal_z *= -1;
 		}
-		resolve_penetration_raster(a, b, contact_normal);
+		auto data = contact_generate_distance_field(a, b , collision_p);
+		if (data.collide.x > 10.0f) {
+			return;
+		}
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(collision_distance), &zero1, GL_DYNAMIC_READ);
 
@@ -312,6 +376,7 @@ public:
 			attributes->voxel_count,
 			waterflag,
 			draw_result_onB,
+			data,
 		});
 		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	}

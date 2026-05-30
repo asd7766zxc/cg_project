@@ -186,6 +186,10 @@ public:
 			mat4::quat(orientation) * // use the orientation transformation from quaternion
 			mat4::trans(draw_without_physics  ? vec3(0.0) : -gravity_center) * mat4::scale(scale); // the scaling usually to scale the object's size
 	}
+	//for distance field 
+	mat4 worldToLocal() const {
+		return localToWorld().inverse();
+	}
 	// motion to world
 	mat4 toWorld() const {
 		return

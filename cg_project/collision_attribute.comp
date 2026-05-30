@@ -24,7 +24,7 @@ uniform int voxel_size_q;
 layout(binding = 2, r32ui) uniform readonly uimage3D Collisions;
 
 // the 2nd pass 
-layout(std430, binding = 0) readonly buffer Approximate_Attribute{
+layout(std430, binding = 4) readonly buffer Approximate_Attribute{
 	int point_x;
 	int point_y;
 	int point_z;
@@ -40,7 +40,7 @@ layout(std430, binding = 0) readonly buffer Approximate_Attribute{
 	int nz, mz;
 };
 
-layout(std430, binding = 1) buffer Penetration{
+layout(std430, binding = 5) buffer Penetration{
 	int max_penetrate;
 	int min_penetrate;
 };

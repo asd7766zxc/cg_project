@@ -62,10 +62,12 @@ public:
 		u = uni(u);
 		vec3 v = u ^ direction;
 		v = uni(v);
+		// head length is 0.025
+		// so result length is 0.125
+		m = std::max(0.0f,m - scale * 0.5f * 0.5f);
 		program->setMat4("model", mat4::trans(origin) * mat4::coord(u,v,direction).transposed() * mat4::scale(vec3(0.2 * scale, 0.2 * scale, m)));
 		program->setVec4("solid_color", color);
 		rod_mesh->draw();
-
 		program->setMat4("model", mat4::trans(origin + direction * m) * mat4::coord(u, v, direction).transposed() * mat4::scale(scale * vec3(0.2, 0.2, 0.5)));
 		program->setVec4("solid_color", color);
 		cone_mesh->draw();

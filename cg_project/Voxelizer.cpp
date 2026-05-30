@@ -1,5 +1,7 @@
 #pragma once
 #include "Voxelizer.hpp"
+#include <filesystem>
+#include <fstream>
 
 const BYTE empty_voxel_grid[512 * 512 * 512] = { 0 };
 unsigned int tmp_grid[256 * 256 * 256];
@@ -23,7 +25,7 @@ void Voxelizer::voxelize(shared_ptr<GameObject> A, bool onlyscaling) {
 	auto align_with_world = [&](float v) {
 		int k = int(v * voxel_size_q / voxel_size_p);
 		return float(k) * voxel_size_p / voxel_size_q;
-		};
+	};
 	float l = bounding_box->x.min;
 	voxel_info.corner_x = int(l * voxel_size_q / voxel_size_p);
 	l = align_with_world(l);
@@ -83,17 +85,43 @@ void Voxelizer::voxelize(shared_ptr<GameObject> A, bool onlyscaling) {
 	glBindTexture(GL_TEXTURE_3D, A->collisionVisualizeTexture);
 	glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, x_dimen, y_dimen, (z_depth + 31) / 32, GL_RED_INTEGER, GL_UNSIGNED_BYTE, empty_voxel_grid);
 }
+BYTE distance_field_tmp[256 * 256 * 256 * 4]; //4 byte for a float32
+bool Voxelizer::read_distace_field_cache(shared_ptr<GameObject> A) {
+	std::string cache_path = "cache/" + std::to_string(A->model->VAO) + "_df.bin";
+	std::ifstream cache_file(cache_path,std::ios::in | std::ios::binary);
+	if (!cache_file.is_open()) {
+		return false;
+	}
+	glBindTexture(GL_TEXTURE_3D, A->distanceTexture);
+	int size = sizeof(distance_field_tmp);
+	cache_file.read(reinterpret_cast<char*>(distance_field_tmp), size);
 
+	glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, df_voxel_dim, df_voxel_dim, df_voxel_dim, GL_RED, GL_FLOAT, distance_field_tmp);
+	return true;
+}
+void write_distance_field_cache(shared_ptr<GameObject> A) {
+	std::filesystem::create_directories("cache/");
+	std::string cache_path = "cache/" + std::to_string(A->model->VAO) + "_df.bin";
+	std::ofstream cache_file(cache_path, std::ios::out | std::ios::binary);
+	if (!cache_file.is_open()) {
+		return;
+	}
+	glBindTexture(GL_TEXTURE_3D, A->distanceTexture);
+	glGetTexImage(GL_TEXTURE_3D, 0, GL_RED, GL_FLOAT, distance_field_tmp);
+	cache_file.write(reinterpret_cast<char*>(distance_field_tmp), sizeof(distance_field_tmp));
+}
 void Voxelizer::calculate_distance_field(shared_ptr<GameObject> A) {
+	if (read_distace_field_cache(A)) return;
+
 	distance_field_compute->use();
 	distance_field_compute->setInt("df_resolution", df_voxel_dim);
 	distance_field_compute->setInt("vertex_count", A->model->vertex_count);
-
 	A->model->bind_buffer();
 	glBindTexture(GL_TEXTURE_3D, A->distanceTexture);
 	glBindImageTexture(0, A->distanceTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32F);
 	glDispatchCompute((df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+	write_distance_field_cache(A);
 }
 
 struct ivec3 {
@@ -212,7 +240,4 @@ void Voxelizer::calculate_tensorOfInertia(shared_ptr<GameObject> A) {
 	mt[12] = 0, mt[13] = 0, mt[14] = 0; mt[15] = 1.0f;
 
 	A->inverse_inertia = A->inertia.inverse();
-	std::cout << A->inertia << '\n';
-	std::cout << A->inverse_inertia << '\n';
-	std::cout << A->inertia * A->inverse_inertia << '\n';
 }

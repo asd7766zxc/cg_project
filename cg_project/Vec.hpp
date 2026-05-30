@@ -9,7 +9,7 @@ using ld = float;
 const float eps = 1e-6;
 inline int sgn(ld x) { return (x > -eps) - (x < eps); }
 
-class vec3 {
+class alignas(16) vec3 {
 public:
 	ld x, y, z;
 

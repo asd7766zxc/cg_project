@@ -12,6 +12,7 @@ public:
 	shared_ptr<Voxelizer> voxelizer;
 	shared_ptr<CollisionDetector> collision_detector;
 	void add_entity(shared_ptr<GameObject> entity) {
+		voxelizer->calculate_distance_field(entity);
 		voxelizer->calculate_gravitycenter(entity);
 		voxelizer->calculate_tensorOfInertia(entity);
 		entity->update_aabb();

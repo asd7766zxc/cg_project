@@ -2,6 +2,14 @@
 const int MXN = 1e6 + 5;
 float positions[MXN];
 float norms[MXN];
+float mx = -1e38;
+float mn = 1e38;
+mat4 Model::meshToField() const {
+	return mat4::scale(vec3(1.0f / (mx - mn))) * mat4::trans(vec3(-mn));
+}
+mat4 Model::fieldToMesh() const {
+	return meshToField().inverse();
+}
 void Model::initializeBuffers() {
 	glGenBuffers(1, &EBO);
 	glGenBuffers(1, &VBO);
@@ -14,8 +22,8 @@ Model::Model() {
 	initializeBuffers();
 }
 void Model::bind_buffer() {
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangles);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, normals);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, triangles);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, normals);
 }
 Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_count) {
 	initializeBuffers();
@@ -29,20 +37,17 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(sizeof(GLfloat) * 6));
 	glEnableVertexAttribArray(2);
-	float mx = 0.0f;
-	float mn = 0.0f;
 	for(int i = 0; i < vertex_count; ++i) {
 		float x = vertices[i * 8 + 0];
 		float y = vertices[i * 8 + 1];
 		float z = vertices[i * 8 + 2];
 		
-		mx = std::fmax(x, mx);
-		mx = std::fmax(y, mx);
-		mx = std::fmax(z, mx);
-
-		mn = std::fmin(x, mn);
-		mn = std::fmin(y, mn);
-		mn = std::fmin(z, mn);
+		mx = std::fmax(2 * x, mx);
+		mx = std::fmax(2 * y, mx);
+		mx = std::fmax(2 * z, mx);
+		mn = std::fmin(2 * x, mn);
+		mn = std::fmin(2 * y, mn);
+		mn = std::fmin(2 * z, mn);
 
 		float nx = vertices[i * 8 + 3];
 		float ny = vertices[i * 8 + 4];
@@ -57,26 +62,6 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 
 		// make mesh aabb
 	}
-	for (int i = 0; i < vertex_count; i += 9) {
-		auto v0 = vec3(&positions[(i + 0) * 3]);
-		auto v1 = vec3(&positions[(i + 1) * 3]);
-		auto v2 = vec3(&positions[(i + 2) * 3]);
-
-		auto norm = uni((v1 - v0) ^ (v2 - v1));
-		
-		float nx = vertices[i * 8 + 3];
-		float ny = vertices[i * 8 + 4];
-		float nz = vertices[i * 8 + 5];
-		vec3 ori_norm = vec3(nx, ny, nz);
-		if (ori_norm * norm < 0) {
-			norm = -norm;
-		}
-
-		norms[(i / 9) * 3 + 0] = nx;
-		norms[(i / 9) * 3 + 1] = ny;
-		norms[(i / 9) * 3 + 2] = nz;
-	}
-
 	for (int i = 0; i < vertex_count; ++i) {
 		
 		// x -> x - mn -> (x - mn) / (mx - mn)
@@ -85,6 +70,16 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 		positions[i * 3 + 2] = (positions[i * 3 + 2] - mn) / (mx - mn);
 		// make mesh aabb
 	}
+	for (int i = 0; i < vertex_count; i += 3) {
+		float nx = vertices[i * 8 + 3];
+		float ny = vertices[i * 8 + 4];
+		float nz = vertices[i * 8 + 5];
+
+		norms[i + 0] = nx;
+		norms[i + 1] = ny;
+		norms[i + 2] = nz;
+	}
+
 
 
 	glBindVertexArray(0);
@@ -94,6 +89,10 @@ Model::Model(float *vertices, int size, int vertex_count) : vertex_count(vertex_
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, normals);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, vertex_count * sizeof(float), norms, GL_DYNAMIC_READ);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	maximum_vertex_distance = mx;
+	minimum_vertex_distance = mn;
+
+	box_size = std::fmax(mx - mn, 1e-6f);
 }
 
 void Model::draw() {
