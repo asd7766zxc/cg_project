@@ -18,7 +18,7 @@ layout(std430,binding = 7) buffer contact_data{
 	vec3 Sb;
 	vec3 collide;
 };
-float h = 1e-3; // for central difference 
+float h = 1.0f/1024.0f; // for central difference 
 
 float D_A(vec3 pos){
 	return texture(df_A, pos).r;
@@ -64,7 +64,7 @@ vec3 projToB(vec3 pos){
 	return pos - Db * gB;
 }
 
-float step_size = 0.0005;
+uniform float step_size;
 uniform float epsilon;
 uniform int max_interation;
 uniform vec3 initialPoint;
@@ -76,14 +76,16 @@ vec3 interateGradient(vec3 x0){
 	vec3 xi = x0;
 	vec3 nx = vec3(1e38f,1e38f,1e38f);
 	float s = step_size;
+	float error = 1e38f;
 	int t = 0;
-	while((D_A(xi) > 0 || D_B(xi) > 0) && infiniteNorm(nx - xi) > epsilon && t < max_interation){
+	while((D_A(xi) > 0 || D_B(xi) > 0) && error > epsilon && t < max_interation){
 		if(D_A(xi) > 0)
 			nx = projToA(xi);
 		else{
 			vec3 gB = grad_B(xi);
 			nx = xi - s * gB;
 		}
+		error = infiniteNorm(nx - xi);
 		t++;
 		xi = nx;
 	}
@@ -94,12 +96,14 @@ vec3 findContactPointA(vec3 x0){
 	vec3 nx = vec3(1e38f,1e38f,1e38f);
 	float s = step_size;
 	int t = 0;
-	while((D_A(xi) <= 0 && D_B(xi) <= 0) && infiniteNorm(nx - xi) > epsilon && t < max_interation){
+	float error = 1e38;
+	while((D_A(xi) <= 0 && D_B(xi) <= 0) && error > epsilon && t < max_interation){
 		vec3 gB = grad_B(xi);
 		nx = xi - s * gB;
-		if(D_A(nx) > 0)
+		// if(D_A(nx) > 0)
 			nx = projToA(nx);
 		t++;
+		error = infiniteNorm(nx - xi);
 		xi = nx;
 	}
 	return xi;
@@ -108,13 +112,15 @@ vec3 findContactPointB(vec3 x0){
 	vec3 xi = x0;
 	vec3 nx = vec3(1e38f,1e38f,1e38f);
 	float s = step_size;
+	float error = 1e38;
 	int t = 0;
-	while((D_A(xi) <= 0 && D_B(xi) <= 0) && infiniteNorm(nx - xi) > epsilon && t < max_interation){
+	while((D_A(xi) <= 0 && D_B(xi) <= 0) && error > epsilon && t < max_interation){
 		vec3 gA = grad_A(xi);
 		nx = xi - s * gA;
-		if(D_B(nx) > 0)
+		//if(D_B(nx) > 0)
 			nx = projToB(nx);
 		t++;
+		error = infiniteNorm(nx - xi);
 		xi = nx;
 	}
 	return xi;

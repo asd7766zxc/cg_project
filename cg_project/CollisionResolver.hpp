@@ -3,8 +3,8 @@
 
 const float angularMovementLimitation = 0.002;
 const float velocityLimitation = 0.2;
-const float penetration_beta = 1.0f;
-const float slop = 0.000;
+const float penetration_beta = 0.2f;
+const float slop = 0.0001f;
 class CollisionResolver {
 public:
 	static void ResolveVelocity(contact_attribute contact,float dt) {
@@ -55,11 +55,12 @@ public:
 		//vs' = -cvs => delVs = -(1 + e) * cv
 		// -> -acc - (1 + e)(vs - vacc)
 		float contact_velocity = getLocalEnclosingVelocity(A) - getLocalEnclosingVelocity(B); // A closing to B (-x)
+		if (contact_velocity > 0.0f) return;
 		if (std::fabs(contact_velocity) < velocityLimitation) {
 			restitution = 0.0f; // if the velocity is very small, we treat it as in rest, no bounce
 		}
-		//float desired_delta_velocity = -(1 + restitution) * contact_velocity; // temporary
-		float desired_delta_velocity = -contact_velocity - restitution * (contact_velocity - velocityFromAcc); // temporary
+		float desired_delta_velocity = -(1 + restitution) * contact_velocity; // temporary
+		//float desired_delta_velocity = -contact_velocity - restitution * (contact_velocity - velocityFromAcc); // temporary
 
 		vec3 contact_impulse = vec3(desired_delta_velocity / deltaVelocity,0,0);
 		vec3 impulse = (contact_coord * vec4(contact_impulse, 0)).toVec3(); // world impulse // IMPORTATNT NO TRANSLATION  
@@ -123,7 +124,7 @@ public:
 			float limit = angularMovementLimitation * abs(r);
 			if (std::fabs(angularMove) > limit) { //Correction by book
 				float totalMove = angularMove + linearMove; //Extra contribute to linear
-				if(angularMove >= 0) {
+				if(angularMove >= limit) {
 					angularMove = limit;
 				}
 				else {

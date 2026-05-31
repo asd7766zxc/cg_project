@@ -169,6 +169,8 @@ public:
 	collision_distance zero1;
 	collision_split zeros;
 	collision_attribute buffer[8];
+	int descent_iterations = 100;
+	float descent_step = 0.0005f;
 	void resolve_collision(shared_ptr<GameObject> a, shared_ptr<GameObject> b) {
 		if (a->penetrable && b->penetrable) return;
 		if (a->hasInifiniteMass() && b->hasInifiniteMass()) return;
@@ -281,9 +283,10 @@ public:
 		distance_field_program->use();
 		distance_field_program->setMat4("AtoB", AtoB);
 		distance_field_program->setFloat("BtoA_scaling", (b->model->box_size * b->scale.x) / (a->model->box_size * a->scale.x));
-		distance_field_program->setFloat("epsilon",1e-7);
+		distance_field_program->setFloat("epsilon",1e-4);
+		distance_field_program->setFloat("step_size", descent_step);
 		distance_field_program->setVec3("initialPoint", collision_p);
-		distance_field_program->setInt("max_interation", 100);
+		distance_field_program->setInt("max_interation", descent_iterations);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_3D, a->distanceTexture);

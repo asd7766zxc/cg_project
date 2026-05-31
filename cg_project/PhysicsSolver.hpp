@@ -19,6 +19,7 @@ public:
 		entity_list.push_back(entity);
 	}
 	shared_ptr<Gravity> g;
+	PhysicsSolver() {}
 	PhysicsSolver(shared_ptr<Voxelizer> voxelizer) : voxelizer(voxelizer) {
 		collision_detector = make_shared<CollisionDetector>(voxelizer);
 		g = make_shared<Gravity>(vec3(0, -9.8, 0));

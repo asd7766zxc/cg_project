@@ -188,6 +188,7 @@ float ball_speed_amplifiler = 1.0;
 bool split_window = false;
 int mx_time_front = 0;
 shared_ptr<WaterGrid> water_grid;
+PhysicsSolver physic_solver;
 void render_ui(float fps) {
 	if (!show_imgui) return;
 	ImGui_ImplOpenGL3_NewFrame();
@@ -224,6 +225,10 @@ void render_ui(float fps) {
 	ImGui::Checkbox("View AABB", &view_aabb);
 	ImGui::Checkbox("View Collision", &view_collision);
 	ImGui::Checkbox("View Parameter Points", &view_points);
+
+
+	ImGui::SliderInt("descent_iterations", &physic_solver.collision_detector->descent_iterations, 0, 400);
+	ImGui::SliderFloat("descent_step", &physic_solver.collision_detector->descent_step, 0.0f, 0.001f,"%.6f");
 
 	if (selected_forAdjustment) {
 		ImGui::SliderFloat("Mass", &selected_forAdjustment->mass, -5.0, 5000.0f);
@@ -421,7 +426,6 @@ signed main() {
 	}
 
 	shader_program->use();
-
 	shader_program->setVec3("material.ambient", vec3(.2));
 	shader_program->setVec3("material.diffuse", vec3(.8));
 	shader_program->setVec3("material.specular", vec3(1));
@@ -499,7 +503,7 @@ signed main() {
 	dynamic_cube_map->depthFBO = depthFBO;
 	dynamic_cube_map->depthmap = depthmap;
 
-	PhysicsSolver physic_solver(voxelizer);
+	physic_solver = PhysicsSolver(voxelizer);
 
 	auto sphere_mesh = MeshBuilder::Sphere(10);
 	for (int i = 0; i < 2; ++i) {
@@ -572,7 +576,7 @@ signed main() {
 	}
 	shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
 	wallN->mass = -1;
-	wallN->scale = vec3(10, 5, 10);
+	wallN->scale = vec3(5,5,5);
 	wallN->position = vec3(5, 5, 5) - 7.5 * vec3(0, 1, 0);
 	physic_solver.add_entity(wallN);
 
