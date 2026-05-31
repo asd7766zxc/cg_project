@@ -3,6 +3,8 @@
 
 const float angularMovementLimitation = 0.002;
 const float velocityLimitation = 0.2;
+const float penetration_beta = 1.0f;
+const float slop = 0.000;
 class CollisionResolver {
 public:
 	static void ResolveVelocity(contact_attribute contact,float dt) {
@@ -88,7 +90,8 @@ public:
 		auto cpos = contact.data.Pa;
 		auto A = contact.A;
 		auto B = contact.B;
-		float penetration = abs(contact.data.Pa - contact.data.Sa); // relaxation
+		float penetration = abs(contact.data.Pa - contact.data.Sa) * penetration_beta; // relaxation
+		penetration = std::max(penetration - slop,0.0f);
 		auto contact_coord = mat4::axisAsX(cnormal); // to world
 		auto to_contact = mat4::axisAsX(cnormal).transposed();
 
