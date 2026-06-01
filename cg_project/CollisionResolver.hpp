@@ -1,10 +1,10 @@
 #pragma once
 #include "CollisionDetector.hpp"
 
-const float angularMovementLimitation = 0.002;
-const float velocityLimitation = 0.2;
-const float penetration_beta = 0.2f;
-const float slop = 0.0001f;
+const float angularMovementLimitation = 0.02;
+const float velocityLimitation = 0.3;
+const float penetration_beta = 1.0f;
+const float slop = 0.0000f;
 class CollisionResolver {
 public:
 	static void ResolveVelocity(contact_attribute contact,float dt) {
@@ -22,7 +22,7 @@ public:
 		float restitution = 0.0f;
 
 		auto cnormal = contact.data.Na; //the normal is A to B (change to (B to A))  // 假裝是 B 往 A 撞 (A's persepective)
-		auto cpos = contact.data.Pa;
+		auto cpos = contact.A->localToWorld() * contact.data.Pa;
 		auto A = contact.A;
 		auto B = contact.B;
 
@@ -88,10 +88,10 @@ public:
 
 
 		auto cnormal = contact.data.Na; //the normal is A to B (change to (B to A))  // 假裝是 B 往 A 撞 (A's persepective)
-		auto cpos = contact.data.Pa;
+		auto cpos = contact.A->localToWorld() * contact.data.Pa;
 		auto A = contact.A;
 		auto B = contact.B;
-		float penetration = abs(contact.data.Pa - contact.data.Sa) * penetration_beta; // relaxation
+		float penetration = abs(contact.A->localToWorld() * contact.data.Pa  - contact.A->localToWorld() * contact.data.Sa) * penetration_beta; // relaxation
 		penetration = std::max(penetration - slop,0.0f);
 		auto contact_coord = mat4::axisAsX(cnormal); // to world
 		auto to_contact = mat4::axisAsX(cnormal).transposed();

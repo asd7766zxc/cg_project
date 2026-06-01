@@ -62,7 +62,7 @@ void Voxelizer::voxelize(shared_ptr<GameObject> A, bool onlyscaling) {
 
 	voxelizer->use();
 	voxelizer->setMat4("proj", mat4::ortho(l, vr, b, vt, n, vf));
-	voxelizer->setMat4("model", onlyscaling ? mat4::scale(A->scale) : A->localToWorld());
+	voxelizer->setMat4("model", onlyscaling ? mat4::scale(A->scale) : A->localToWorld() * mat4::scale(1.1));
 	voxelizer->setInt("zdepth", z_depth);
 
 	glBindTexture(GL_TEXTURE_3D, A->voxelTexture);

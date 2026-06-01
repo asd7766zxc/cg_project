@@ -109,11 +109,12 @@ public:
 	shared_ptr<ShaderProgram> collision_splitting_program;
 	shared_ptr<ShaderProgram> distance_program;
 	shared_ptr<ShaderProgram> distance_field_program;
+	shared_ptr<ShaderProgram> ray_voxel_program;
 
 	shared_ptr<Voxelizer> voxelizer;
 	vector<contact_attribute> collisions;
 	GLuint ssbo[4];
-
+	GLuint ray_inersect_buffer;
 	GLuint distance_map,distance_fbo;
 	const int raterizer_resolution = 100;
 	void bind_buffers() {
@@ -141,11 +142,16 @@ public:
 			(vector<shared_ptr<Shader>>{
 			make_shared<Shader>("distance_field_gradient.comp", GL_COMPUTE_SHADER)
 		});
+		ray_voxel_program = make_shared<ShaderProgram>
+			(vector<shared_ptr<Shader>>{
+			make_shared<Shader>("ray_voxel_intersect.comp", GL_COMPUTE_SHADER)
+		});
 
 		glGenBuffers(1, &ssbo[0]);
 		glGenBuffers(1, &ssbo[1]);
 		glGenBuffers(1, &ssbo[2]);
 		glGenBuffers(1, &ssbo[3]);
+		glGenBuffers(1, &ray_inersect_buffer);
 
 		glGenTextures(1, &distance_map);
 		glBindTexture(GL_TEXTURE_2D, distance_map);
@@ -275,11 +281,50 @@ public:
 			spliting(a, b, &att,waterflag,draw_result_onB,0);
 		}
 	};
+	struct ray_data {
+		vec3 direct;
+		vec3 ori;
+		float l;
+		float r;
+		unsigned mutex = 0u;
+		int hit = 0;
+	};
+	ray_data null_data;
+	bool intersect_with_ray(shared_ptr<GameObject> a, const ray& r, interval& ray_tt) {
+		ray_voxel_program->use();
+		null_data.mutex = 0u;
+		null_data.hit = 0;
+		null_data.ori = r.origin();
+		null_data.direct = r.direction();
+		null_data.l = ray_tt.min;
+		null_data.r = ray_tt.max;
+		ray_voxel_program->setInt("voxel_size_p", 5);
+		ray_voxel_program->setInt("voxel_size_q", 100);
+		ray_voxel_program->setInt("voxelInfoA.dimx", a->voxel_info.dim_x);
+		ray_voxel_program->setInt("voxelInfoA.dimy", a->voxel_info.dim_y);
+		ray_voxel_program->setInt("voxelInfoA.dimz", a->voxel_info.dim_z);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ray_inersect_buffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ray_data), &null_data, GL_DYNAMIC_READ);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ray_inersect_buffer);
+		glBindImageTexture(0, a->voxelTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
+		glDispatchCompute((a->voxel_info.dim_x + 7) / 8, (a->voxel_info.dim_y + 7) / 8, 1);
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+		ray_data* data = (ray_data*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+		bool hit = data->hit;
+		if (data->hit) {
+			ray_tt.min = data->l;
+			ray_tt.max = data->r;
+		}
+		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+		return hit;
+	}
+	
 	df_data contact_generate_distance_field(shared_ptr<GameObject> a, shared_ptr<GameObject> b ,vec3 collision_p) {
 		// working in A's LCS
 		collision_p = (a->model->meshToField() * a->worldToLocal() * vec4(collision_p, 1.0f)).toVec3();
 		//from A's field to B's field
 		mat4 AtoB = b->model->meshToField() * b->worldToLocal() * a->localToWorld() * a->model->fieldToMesh();
+		mat4 AtoBlocal = b->worldToLocal() * a->localToWorld() * a->model->fieldToMesh();
 		distance_field_program->use();
 		distance_field_program->setMat4("AtoB", AtoB);
 		distance_field_program->setFloat("BtoA_scaling", (b->model->box_size * b->scale.x) / (a->model->box_size * a->scale.x));
@@ -304,18 +349,18 @@ public:
 		if (data->collide.x > 10.0f) {
 			return *data;
 		}
-		auto toWorld = a->localToWorld() * a->model->fieldToMesh();
-		data->Na = uni((toWorld * vec4(data->Na, 0)).toVec3());
-		data->Nb = uni((toWorld * vec4(data->Nb, 0)).toVec3());
+		auto toLocal = a->model->fieldToMesh();
+		data->Na = uni((a->localToWorld () * toLocal * vec4(data->Na, 0)).toVec3());
+		data->Nb = uni((b->localToWorld () * AtoBlocal * vec4(data->Nb, 0)).toVec3());
 		
-		data->cp = (toWorld * vec4(data->cp, 1)).toVec3();
+		data->cp = (a->localToWorld() * toLocal * vec4(data->cp, 1)).toVec3();
 		
-		data->Pa = (toWorld * vec4(data->Pa, 1)).toVec3();
-		data->Pb = (toWorld * vec4(data->Pb, 1)).toVec3();
+		data->Pa = (toLocal * vec4(data->Pa, 1)).toVec3();
+		data->Pb = (AtoBlocal * vec4(data->Pb, 1)).toVec3();
 
 
-		data->Sa = (toWorld * vec4(data->Sa, 1)).toVec3();
-		data->Sb = (toWorld * vec4(data->Sb, 1)).toVec3();
+		data->Sa = (toLocal * vec4(data->Sa, 1)).toVec3();
+		data->Sb = (AtoBlocal * vec4(data->Sb, 1)).toVec3();
 		return *data;
 
 	}

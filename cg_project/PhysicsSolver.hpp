@@ -24,6 +24,8 @@ public:
 		collision_detector = make_shared<CollisionDetector>(voxelizer);
 		g = make_shared<Gravity>(vec3(0, -9.8, 0));
 	}
+
+	int resolving_times = 1;
 	void update(float dt,shared_ptr<WaterGrid> grid,bool paused) {
 		if (paused) {
 			for (auto& c : entity_list) c->update_aabb();
@@ -46,6 +48,23 @@ public:
 		collision_detector->update_grid(entity_list);
 		
 		collision_detector->collision_solve_regular(entity_list);
+		for (auto& a : collision_detector->collisions) {
+			if (a.inwater) {
+				continue;
+			}
+			CollisionResolver::ResolveVelocity(a, dt);
+		}
+		for (int i = 0; i < resolving_times; ++i) {
+			for (auto& a : collision_detector->collisions) {
+				if (a.inwater) {
+					continue;
+				}
+				//a.data = collision_detector->contact_generate_distance_field(a.A, a.B, a.data.Pa);
+				if (a.data.collide) {
+					CollisionResolver::ResolvePenetration(a);
+				}
+			}
+		}
 		//simple collision resolve
 		for (auto& a : collision_detector->collisions) {
 			if (a.inwater) {
@@ -55,9 +74,7 @@ public:
 				grid->applyWaveAt(grid_point.x, grid_point.z,a.penetration,a.A);
 				continue;
 			}
-
-			CollisionResolver::ResolveVelocity(a,dt);
-			CollisionResolver::ResolvePenetration(a);
+			
 		}
 	}
 };

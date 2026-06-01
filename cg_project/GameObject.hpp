@@ -72,7 +72,7 @@ public:
 			float y = model->bounding_box.y.get((s >> 1) & 1);
 			float z = model->bounding_box.z.get((s >> 2) & 1);
 
-			vec3 v = ((onlyscaling ? mat4::scale(scale) : localToWorld()) * vec4(x, y, z, 1)).toVec3();
+			vec3 v = ((onlyscaling ? mat4::scale(scale) : localToWorld() * mat4::scale(1.1)) * vec4(x, y, z, 1)).toVec3();
 			bounding_box->x.adjust(v.x);
 			bounding_box->y.adjust(v.y);
 			bounding_box->z.adjust(v.z);

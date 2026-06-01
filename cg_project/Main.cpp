@@ -627,11 +627,15 @@ signed main() {
 			shared_ptr<GameObject> obj;
 			if (camera_control) return obj;
 			for (auto& a : physic_solver.entity_list) {
-				a->update_aabb();
 				if (!a->visible) continue;
+				a->update_aabb();
 				a->selected = false;
 				if (a->bounding_box->hit(ray_t, ri)) {
-					obj = a;
+					voxelizer->voxelize(a);
+					if (physic_solver.collision_detector->intersect_with_ray(a,ray_t,ri)) {
+						obj = a;
+					}
+
 				}
 			}
 			if (obj) obj->selected = true;
@@ -744,14 +748,16 @@ signed main() {
 				//if (a.inwater) continue;
 				if (view_collision) visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
 				//visualizer.draw_point(a.point, { 1,1,0,1 });
-				visualizer.draw_vector(a.data.Na * abs(a.data.Pa - a.data.Sa), a.data.Pa, {0,0,1,1});
-				visualizer.draw_point(a.data.Pa, { 1,1,0,1 });
-
-				visualizer.draw_vector(a.data.Nb * abs(a.data.Pb - a.data.Sb), a.data.Pb, { 0,1,1,1 });
-				visualizer.draw_point(a.data.Pb, { 0,1,0,1 });
+				float peneA = abs(a.A->localToWorld() * a.data.Pa - a.A->localToWorld() * a.data.Sa);
+				float peneB = abs(a.B->localToWorld() * a.data.Pb - a.B->localToWorld() * a.data.Sb);
+				visualizer.draw_vector(a.data.Na * peneA, a.A->localToWorld() * a.data.Pa, { 0,0,1,1 });
+				visualizer.draw_point(a.A->localToWorld() * a.data.Pa, { 1,1,0,1 });								    
+																													    
+				visualizer.draw_vector(a.data.Nb * peneB, a.B->localToWorld() * a.data.Pb, {0,1,1,1});
+				visualizer.draw_point(a.B->localToWorld() * a.data.Pb, { 0,1,0,1 });
 			}
 			
-			visualizer.draw_distance(moving_cube,0.5);
+			visualizer.draw_distance(moving_teapot, (sin(glfwGetTime()) + 1) * 0.5);
 			//visualizer.draw_point(mmpos, { 1,1,1,0.4 });
 		/*	visualizer.draw_point(world_mouse, {1,1,1,0.4});
 			visualizer.draw_vector(uni(far_world_mouse - world_mouse), world_mouse, {1,1,1,0.4});*/

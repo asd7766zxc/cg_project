@@ -198,6 +198,7 @@
     <None Include="env.frag" />
     <None Include="env.geom" />
     <None Include="env.vert" />
+    <None Include="ray_voxel_intersect.comp" />
     <None Include="reflect.frag" />
     <None Include="reflect.vert" />
     <None Include="refract.frag" />
