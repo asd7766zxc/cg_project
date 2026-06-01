@@ -112,7 +112,7 @@ void write_distance_field_cache(shared_ptr<GameObject> A) {
 }
 void Voxelizer::calculate_distance_field(shared_ptr<GameObject> A) {
 	if (read_distace_field_cache(A)) return;
-
+	clock_t start_time = clock();
 	distance_field_compute->use();
 	distance_field_compute->setInt("df_resolution", df_voxel_dim);
 	distance_field_compute->setInt("vertex_count", A->model->vertex_count);
@@ -122,6 +122,8 @@ void Voxelizer::calculate_distance_field(shared_ptr<GameObject> A) {
 	glDispatchCompute((df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8, (df_voxel_dim + 7) / 8);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 	write_distance_field_cache(A);
+	clock_t end_time = clock();
+	std::cout << "distance field calculated for model: " << A->model->VAO << " using " << (end_time - start_time) / (float)CLOCKS_PER_SEC << " seconds." << std::endl;
 }
 
 struct ivec3 {

@@ -78,6 +78,20 @@ public:
 			bounding_box->z.adjust(v.z);
 		}
 	}
+	aabb getInterpolatedAABB(float t, float dt) {
+		aabb ret;
+		for (int s = 0; s < (1 << 3); ++s) {
+			float x = model->bounding_box.x.get((s >> 0) & 1);
+			float y = model->bounding_box.y.get((s >> 1) & 1);
+			float z = model->bounding_box.z.get((s >> 2) & 1);
+
+			vec3 v = (interpolate_localToWorld(t,dt) * vec4(x, y, z, 1)).toVec3();
+			ret.x.adjust(v.x);
+			ret.y.adjust(v.y);
+			ret.z.adjust(v.z);
+		}
+		return ret;
+	}
 	
 	virtual void draw(shared_ptr<ShaderProgram> shader_program) {
 		shader_program->use();
@@ -85,6 +99,12 @@ public:
 		texture->bind();
 		shader_program->setMat4("model", localToWorld());
 		model->draw();
+	}
+	vec3 last_frame_position;
+	quat last_frame_orientation;
+	void initialize_lastframe() {
+		last_frame_position = position;
+		last_frame_orientation = orientation;
 	}
 	float lastAppliedWave = 0.0f;
 	bool visible = true;
@@ -111,7 +131,8 @@ public:
 	//changes
 	vec3 accumlatedForces;
 	vec3 accumulatedTorque;
-	
+	float accumulated_time = 0.0f;
+
 	//inertia
 	float mass = 1.0f;
 	mat4 inertia;
@@ -124,7 +145,7 @@ public:
 
 	float velocity_damping = 0.98;
 	float angular_damping = 0.98;
-
+	float accumulated_impact_time = 0.0f;
 	// if mass < 0 -> infinite mass
 	float inverseMass() const {
 		if (hasInifiniteMass()) return 0.0f;
@@ -147,6 +168,7 @@ public:
 		return ret;
 	}
 	void integrate(float dt) {
+		dt += accumulated_time;
 		if (selected) clearAccumulators();
 		if (hasInifiniteMass() || selected) return; //直接假設物體不會動 (stasis)
 		vec3 linear_acc = accumlatedForces * inverseMass() + impulsed_acc; //we have impulsed acc (occur when collision)
@@ -160,15 +182,40 @@ public:
 		velocity *= velocity_damping;
 		rotation *= angular_damping;
 
+		last_frame_position = position;
+		last_frame_orientation = orientation;
+
 		position += velocity * dt;
 		orientation = orientation.rotate(rotation * dt);
 		orientation.normalize();
 		clearAccumulators();
 	}
+	void adjustTo(float t,float dt) {
+		position = last_frame_position + velocity * dt * t;
+		orientation = last_frame_orientation.rotate(rotation * dt * t);
+		orientation.normalize();
+	}
+	// t in [0,1] 0-> last frame, 1-> current frame
+	vec3 interpolate_position(float t,float dt) {
+		return last_frame_position + velocity * dt * t;
+	}
+	quat interpolate_orientation(float t, float dt) {
+		quat ret = last_frame_orientation.rotate(rotation * dt * t);
+		ret.normalize();
+		return ret;
+	}
+	mat4 interpolate_localToWorld(float t, float dt) {
+		return
+			mat4::trans(interpolate_position(t,dt)) * // displacement
+			mat4::quat(interpolate_orientation(t,dt)) * // use the orientation transformation from quaternion
+			mat4::trans(-gravity_center) * mat4::scale(scale); // the scaling usually to scale the object's size
+	}
+	
 	void clearAccumulators() {
 		impulsed_acc = vec3(0.0);
 		accumulatedTorque = vec3(0.0);
 		accumlatedForces = vec3(0.0);
+		accumulated_time = 0.0f;
 	}
 	void addForce(vec3 f) {
 		accumlatedForces += f;

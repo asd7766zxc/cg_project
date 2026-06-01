@@ -49,7 +49,7 @@ struct PointLight {
 };
 vector<PointLight> point_lights;
 bool pause_world = true;
-bool view_collision = true;
+bool view_collision = false;
 bool view_points = true;
 bool view_aabb = false;
 bool reset_flag = false;
@@ -69,9 +69,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 	if (key == GLFW_KEY_P && action == GLFW_PRESS) {
 		pause_world = !pause_world;
-	}
-	if (key == GLFW_KEY_J && action == GLFW_PRESS) {
-		selected_forAdjustment->addForceAtPoint(selected_forAdjustment->mass * vec3(0, -9.8, 0), (selected_forAdjustment->toWorld()).inverse() * vec3(-1, 0.3, -1));
 	}
 	if (key == GLFW_KEY_R && action == GLFW_PRESS) {
 		reset_flag = true;
@@ -120,6 +117,10 @@ void updateWorld(GLFWwindow* window, float delta) {
 	if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
 		add_ball(1);
 	}
+
+	if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
+		selected_forAdjustment->addForceAtPoint(selected_forAdjustment->mass * vec3(0, -9.8, 0), (selected_forAdjustment->toWorld()).inverse() * vec3(-1, 0.3, -1));
+	}
 	camera->updateView();
 
 	float R = 10.0f;
@@ -143,6 +144,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
 			return;
 		}
 		selected->position += 0.5 * yoffset * ray_direct;
+		selected->initialize_lastframe();
 	}
 }
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
@@ -172,6 +174,7 @@ void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 			float t = nume / denom;
 			if (t >= 0.0f) {
 				selected->position = t * ray_direct + mpos;
+				selected->initialize_lastframe();
 				mmpos = t * ray_direct + mpos;
 			}
 		}
@@ -189,6 +192,8 @@ bool split_window = false;
 int mx_time_front = 0;
 shared_ptr<WaterGrid> water_grid;
 PhysicsSolver physic_solver;
+float distance_visualization_slice = 0.5f;
+bool view_collision_points = false;
 void render_ui(float fps) {
 	if (!show_imgui) return;
 	ImGui_ImplOpenGL3_NewFrame();
@@ -219,11 +224,12 @@ void render_ui(float fps) {
 
 	ImGui::SliderInt("Padding", &water_grid->padding, 0, 900);
 	ImGui::SliderFloat("Damping", &water_grid->damping, 0.0, 1.0f);
-
+	ImGui::SliderFloat("Distance Visualize Slice", &distance_visualization_slice, 0.0f, 1.0f);
 	ImGui::SliderInt("Time", &cur_time, 0 , mx_time_front);
 
 	ImGui::Checkbox("View AABB", &view_aabb);
 	ImGui::Checkbox("View Collision", &view_collision);
+	ImGui::Checkbox("View Collision Points", &view_collision_points);
 	ImGui::Checkbox("View Parameter Points", &view_points);
 
 
@@ -365,6 +371,7 @@ signed main() {
 	shared_ptr<Texture> texture_yellow = make_shared<Texture>(0x00ffff);
 	shared_ptr<Texture> texture_green = make_shared<Texture>(0x00ff00);
 
+	shared_ptr<Texture> toilet_texture = make_shared<Texture>("Toilet.jpg");
 	shared_ptr<Texture> warning_tape = make_shared<Texture>("warningTape.png");
 	shared_ptr<Texture> warp_tape = make_shared<Texture>("warp.jpg");
 	shared_ptr<Texture> wood_floor = make_shared<Texture>("wood.png");
@@ -436,9 +443,11 @@ signed main() {
 	shader_program->use();
 
 	shared_ptr<ModelLoader> teapot_nolid_raw = make_shared<ModelLoader>("utah_teapot_nolid.obj");
+	//shared_ptr<ModelLoader> toilet_raw = make_shared<ModelLoader>("10778_Toilet_V2.obj");
 	//shared_ptr<ModelLoader> teapot_raw = make_shared<ModelLoader>("utah_teapot_nold.obj");
 	//shared_ptr<Model> teapot = make_shared<Model>(teapot_raw->vertices, teapot_raw->vertex_size * 8 * 4, teapot_raw->vertex_size);
 	shared_ptr<Model> teapot_nolid = make_shared<Model>(teapot_nolid_raw->vertices, teapot_nolid_raw->vertex_size * 8 * 4, teapot_nolid_raw->vertex_size);
+	//shared_ptr<Model> toilet = make_shared<Model>(toilet_raw->vertices, toilet_raw->vertex_size * 8 * 4, toilet_raw->vertex_size);
 	shared_ptr<ReflectionTexture> reflect_texture = make_shared<ReflectionTexture>(window_width,window_height);
 	// [-.5,-.5,-.5] ~ [.5,.5,.5]
 	shared_ptr<Model> cube = MeshBuilder::Cube();
@@ -509,15 +518,23 @@ signed main() {
 	for (int i = 0; i < 2; ++i) {
 
 		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(sphere_mesh, texture_yellow);
-		moving_sphere->position = vec3(10, 5, 10);
+		moving_sphere->position = vec3(6, 5-i, 10-i);
 		moving_sphere->velocity = vec3(0, 0.1, 0);
 		moving_sphere->scale = vec3(0.5);
 		moving_sphere->mass = 157.08;
 		physic_solver.add_entity(moving_sphere);
 	}
 
+	shared_ptr<GameObject> light_sphere = make_shared<GameObject>(sphere_mesh, texture_blue);
+	light_sphere->position = vec3(6, 8, 6);
+	light_sphere->velocity = vec3(0, 0.1, 0);
+	light_sphere->scale = vec3(0.5);
+	light_sphere->mass = 157.08;
+	light_sphere->visible = false;
+	physic_solver.add_entity(light_sphere);
 
 	shared_ptr<GameObject> moving_teapot = make_shared<GameObject>(teapot_nolid, texture_yellow);
+	//shared_ptr<GameObject> moving_toilet = make_shared<GameObject>(toilet, toilet_texture);
 	shared_ptr<GameObject> moving_cube = make_shared<GameObject>(cube, texture_yellow);
 
 	shared_ptr<GameObject> moving_metal_cube = make_shared<GameObject>(cube, texture_yellow);
@@ -550,13 +567,18 @@ signed main() {
 
 	moving_metal_cube->mass = 2000;
 	moving_metal_cube->position = vec3(-2, 5, -2);
-	moving_metal_cube->scale = vec3(1.0f);
+	moving_metal_cube->scale = vec3(0.3f);
 
 	moving_teapot->position = vec3(5,20,5);
-	moving_teapot->scale = vec3(0.5);
-	moving_teapot->mass = 200;
+	moving_teapot->scale = vec3(1);
+	moving_teapot->mass = 1000;
 
+	/*moving_toilet->scale = vec3(0.1);
+	moving_toilet->mass = 500;
+	moving_toilet->orientation = quat(0,0,0,1);
+	moving_toilet->position = vec3(6, 10, 6);*/
 	
+	//physic_solver.add_entity(moving_toilet);
 	physic_solver.add_entity(moving_metal_cube);
 	physic_solver.add_entity(moving_cube);
 	physic_solver.add_entity(water_grid->internal_object);
@@ -574,11 +596,17 @@ signed main() {
 			}
 		}
 	}
-	shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, warning_tape);
+	shared_ptr<GameObject> wallN = make_shared<GameObject>(cube, texture_white);
 	wallN->mass = -1;
-	wallN->scale = vec3(5,5,5);
-	wallN->position = vec3(5, 5, 5) - 7.5 * vec3(0, 1, 0);
+	wallN->scale = vec3(10,10,10);
+	wallN->position = vec3(5, -5, 5);
 	physic_solver.add_entity(wallN);
+
+	shared_ptr<GameObject> wallR = make_shared<GameObject>(cube, texture_white);
+	wallR->mass = -1;
+	wallR->scale = vec3(5,5,5);
+	wallR->position = vec3(-4,-7,5);
+	physic_solver.add_entity(wallR);
 
 	const float dt = 1/60.0;
 
@@ -627,7 +655,7 @@ signed main() {
 			shared_ptr<GameObject> obj;
 			if (camera_control) return obj;
 			for (auto& a : physic_solver.entity_list) {
-				if (!a->visible) continue;
+				if (a->penetrable) continue;
 				a->update_aabb();
 				a->selected = false;
 				if (a->bounding_box->hit(ray_t, ri)) {
@@ -646,6 +674,10 @@ signed main() {
 		}
 		auto draw_scence = [&](shared_ptr<ShaderProgram> shader_program) {
 			shader_program->use();
+			point_lights[2].position[0] = light_sphere->position.x;
+			point_lights[2].position[1] = light_sphere->position.y;
+			point_lights[2].position[2] = light_sphere->position.z;
+
 #pragma region LightParameterPass
 			for (int i = 0; i < point_lights.size(); ++i) {
 				shader_program->setVec3("point_lights[" + std::to_string(i) + "].position", point_lights[i].position);
@@ -662,11 +694,21 @@ signed main() {
 			texture_white->bind();
 
 			for (int l = 0; l < point_lights.size(); ++l) {
-				if (point_lights[l].enable) {
+				if (point_lights[l].enable && l != 2) {
 					shader_program->setInt("isLight", 1 + l);
 					shader_program->setMat4("model", mat4::trans(point_lights[l].position));
 					cube->draw();
 				}
+			}
+			if (point_lights[2].enable) {
+
+				shader_program->setInt("isLight", 1 + 2);
+				shader_program->setMat4("model", light_sphere->localToWorld());
+				if (light_sphere->selected) {
+					visualizer.draw_glow(light_sphere, vec4(1, 0, 0, 0.8));
+					shader_program->use();
+				}
+				light_sphere->model->draw();
 			}
 
 			shader_program->setInt("isLight", 0);
@@ -747,17 +789,22 @@ signed main() {
 			for (auto& a : physic_solver.collision_detector->collisions) {
 				//if (a.inwater) continue;
 				if (view_collision) visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);
+				if (!view_collision_points) continue;
 				//visualizer.draw_point(a.point, { 1,1,0,1 });
 				float peneA = abs(a.A->localToWorld() * a.data.Pa - a.A->localToWorld() * a.data.Sa);
 				float peneB = abs(a.B->localToWorld() * a.data.Pb - a.B->localToWorld() * a.data.Sb);
 				visualizer.draw_vector(a.data.Na * peneA, a.A->localToWorld() * a.data.Pa, { 0,0,1,1 });
-				visualizer.draw_point(a.A->localToWorld() * a.data.Pa, { 1,1,0,1 });								    
-																													    
+				visualizer.draw_point(a.A->localToWorld() * a.data.Pa, { 1,1,0,1 });
+
 				visualizer.draw_vector(a.data.Nb * peneB, a.B->localToWorld() * a.data.Pb, {0,1,1,1});
 				visualizer.draw_point(a.B->localToWorld() * a.data.Pb, { 0,1,0,1 });
 			}
 			
-			visualizer.draw_distance(moving_teapot, (sin(glfwGetTime()) + 1) * 0.5);
+			if(selected != nullptr)
+			visualizer.draw_distance(selected, distance_visualization_slice);
+
+			if (selected_forAdjustment != nullptr)
+				visualizer.draw_distance(selected_forAdjustment, distance_visualization_slice);
 			//visualizer.draw_point(mmpos, { 1,1,1,0.4 });
 		/*	visualizer.draw_point(world_mouse, {1,1,1,0.4});
 			visualizer.draw_vector(uni(far_world_mouse - world_mouse), world_mouse, {1,1,1,0.4});*/

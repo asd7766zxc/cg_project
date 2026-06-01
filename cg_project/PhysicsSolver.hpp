@@ -16,7 +16,9 @@ public:
 		voxelizer->calculate_gravitycenter(entity);
 		voxelizer->calculate_tensorOfInertia(entity);
 		entity->update_aabb();
+		entity->initialize_lastframe();
 		entity_list.push_back(entity);
+
 	}
 	shared_ptr<Gravity> g;
 	PhysicsSolver() {}
@@ -29,10 +31,9 @@ public:
 	void update(float dt,shared_ptr<WaterGrid> grid,bool paused) {
 		if (paused) {
 			for (auto& c : entity_list) c->update_aabb();
-			//for (auto& c : entity_list) voxelizer->voxelize(c);
 			collision_detector->update_grid(entity_list);
 
-			collision_detector->collision_solve_regular(entity_list);
+			collision_detector->collision_solve_regular(entity_list,dt);
 			return;
 		}
 		//add gravity
@@ -44,10 +45,9 @@ public:
 		}
 		for (auto& c : entity_list) c->integrate(dt);
 		for (auto& c : entity_list) c->update_aabb();
-		//for (auto& c : entity_list) voxelizer->voxelize(c);
 		collision_detector->update_grid(entity_list);
 		
-		collision_detector->collision_solve_regular(entity_list);
+		collision_detector->collision_solve_regular(entity_list,dt);
 		for (auto& a : collision_detector->collisions) {
 			if (a.inwater) {
 				continue;
@@ -59,7 +59,6 @@ public:
 				if (a.inwater) {
 					continue;
 				}
-				//a.data = collision_detector->contact_generate_distance_field(a.A, a.B, a.data.Pa);
 				if (a.data.collide) {
 					CollisionResolver::ResolvePenetration(a);
 				}

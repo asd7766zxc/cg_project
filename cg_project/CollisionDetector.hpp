@@ -17,6 +17,8 @@ struct df_data {
 	vec3 Sb;
 
 	vec3 collide;
+
+	float accumulated_time = 0.0f;
 };
 struct contact_attribute {
 	shared_ptr<GameObject> A, B;
@@ -177,7 +179,7 @@ public:
 	collision_attribute buffer[8];
 	int descent_iterations = 100;
 	float descent_step = 0.0005f;
-	void resolve_collision(shared_ptr<GameObject> a, shared_ptr<GameObject> b) {
+	void resolve_collision(shared_ptr<GameObject> a, shared_ptr<GameObject> b, float dt) {
 		if (a->penetrable && b->penetrable) return;
 		if (a->hasInifiniteMass() && b->hasInifiniteMass()) return;
 		
@@ -274,11 +276,11 @@ public:
 			collision_attribute_program->setInt("currentCenterA.y", currenty);
 			collision_attribute_program->setInt("currentCenterA.z", currentz);
 			for (int i = 0; i < 8; ++i) {
-				spliting(a, b, &buffer[i], waterflag, draw_result_onB,i+1);
+				spliting(a, b, &buffer[i], waterflag, draw_result_onB,i+1,dt);
 			}
 		}
 		else {
-			spliting(a, b, &att,waterflag,draw_result_onB,0);
+			spliting(a, b, &att,waterflag,draw_result_onB,0,dt);
 		}
 	};
 	struct ray_data {
@@ -298,8 +300,8 @@ public:
 		null_data.direct = r.direction();
 		null_data.l = ray_tt.min;
 		null_data.r = ray_tt.max;
-		ray_voxel_program->setInt("voxel_size_p", 5);
-		ray_voxel_program->setInt("voxel_size_q", 100);
+		ray_voxel_program->setInt("voxel_size_p", voxelizer->voxel_size_p);
+		ray_voxel_program->setInt("voxel_size_q", voxelizer->voxel_size_q);
 		ray_voxel_program->setInt("voxelInfoA.dimx", a->voxel_info.dim_x);
 		ray_voxel_program->setInt("voxelInfoA.dimy", a->voxel_info.dim_y);
 		ray_voxel_program->setInt("voxelInfoA.dimz", a->voxel_info.dim_z);
@@ -318,8 +320,91 @@ public:
 		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 		return hit;
 	}
-	
-	df_data contact_generate_distance_field(shared_ptr<GameObject> a, shared_ptr<GameObject> b ,vec3 collision_p) {
+
+	df_data bisection_method(shared_ptr<GameObject> a, shared_ptr<GameObject> b, vec3 collision_p,float t, float dt) {
+		aabb boxA = a->getInterpolatedAABB(t, dt);
+		aabb boxB = b->getInterpolatedAABB(t, dt);
+		if(!boxA.hit(boxB)){
+			df_data data;
+			data.collide = vec3(100.0f);
+			return data;
+		}
+		mat4 FtoA = a->model->fieldToMesh();
+		mat4 FtoB = b->model->fieldToMesh();
+
+		mat4 AtoF = FtoA.inverse();
+		mat4 BtoF = FtoB.inverse();
+
+		mat4 AtoW = a->interpolate_localToWorld(t,dt);
+		mat4 BtoW = b->interpolate_localToWorld(t,dt);
+
+		mat4 WtoA = AtoW.inverse();
+		mat4 WtoB = BtoW.inverse();
+
+		// working in A's LCS
+		collision_p = (AtoF * WtoA * vec4(collision_p, 1.0f)).toVec3();
+		//from A's field to B's field
+		mat4 AtoB = BtoF * WtoB * AtoW * FtoA;
+		mat4 AtoBlocal = WtoB * AtoW * FtoA;
+		distance_field_program->use();
+		distance_field_program->setMat4("AtoB", AtoB);
+		distance_field_program->setFloat("BtoA_scaling", (b->model->box_size * b->scale.x) / (a->model->box_size * a->scale.x));
+		distance_field_program->setFloat("epsilon", 1e-4);
+		distance_field_program->setFloat("step_size", descent_step);
+		distance_field_program->setVec3("initialPoint", collision_p);
+		distance_field_program->setInt("max_interation", descent_iterations);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_3D, a->distanceTexture);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_3D, b->distanceTexture);
+
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[3]);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(df_data), NULL, GL_DYNAMIC_READ);
+
+		glDispatchCompute(1, 1, 1);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+		df_data* data = (df_data*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+		if (data->collide.x > 10.0f) {
+			return *data;
+		}
+		data->Na = uni((AtoW * FtoA * vec4(data->Na, 0)).toVec3());
+		data->Nb = uni((BtoW * AtoBlocal * vec4(data->Nb, 0)).toVec3());
+
+		data->cp = (AtoW * FtoA * vec4(data->cp, 1)).toVec3();
+
+		data->Pa = (FtoA * vec4(data->Pa, 1)).toVec3();
+		data->Pb = (AtoBlocal * vec4(data->Pb, 1)).toVec3();
+
+
+		data->Sa = (FtoA * vec4(data->Sa, 1)).toVec3();
+		data->Sb = (AtoBlocal * vec4(data->Sb, 1)).toVec3();
+		return *data;
+	}
+
+	float target_precision = 1e-5f;
+	// 000000111111
+	df_data contact_generate_bisection_distance_field(shared_ptr<GameObject> a, shared_ptr<GameObject> b, vec3 collision_p, float dt) {
+		float l = 0, r = 1.0f;
+		df_data data; 
+		while (r - l > target_precision) {
+			float m = (r + l) / 2;
+			data = bisection_method(a, b, collision_p, m, dt);
+			if (data.collide.x > 10.0f) l = m; 
+			else r = m; //collide
+		}
+		data = bisection_method(a, b, collision_p, r, dt);
+		if (data.collide.x > 10.0f) {
+			return data;
+		}
+		a->adjustTo(r,dt);
+		b->adjustTo(r,dt);
+		data.accumulated_time = 1.0f - r;
+		return data;
+	}
+	df_data contact_generate_distance_field(shared_ptr<GameObject> a, shared_ptr<GameObject> b ,vec3 collision_p, float dt) {
 		// working in A's LCS
 		collision_p = (a->model->meshToField() * a->worldToLocal() * vec4(collision_p, 1.0f)).toVec3();
 		//from A's field to B's field
@@ -361,10 +446,13 @@ public:
 
 		data->Sa = (toLocal * vec4(data->Sa, 1)).toVec3();
 		data->Sb = (AtoBlocal * vec4(data->Sb, 1)).toVec3();
-		return *data;
+		data->accumulated_time = 0.0f;
+		auto tmp = *data;
+		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+		return tmp;
 
 	}
-	void spliting(shared_ptr<GameObject> a, shared_ptr<GameObject> b, collision_attribute *attributes,bool waterflag,bool draw_result_onB,int index) {
+	void spliting(shared_ptr<GameObject> a, shared_ptr<GameObject> b, collision_attribute *attributes,bool waterflag,bool draw_result_onB,int index,float dt) {
 		// integer points are corners need to move to center
 		vec3 collision_p = vec3(attributes->point_x, attributes->point_y, attributes->point_z) * (1.0 / attributes->voxel_count) * voxelizer->voxel_size + a->voxel_info.box_corner + vec3(voxelizer->voxel_size / 2.0);
 		vec3 contact_normal = vec3(attributes->normal_x, attributes->normal_y, attributes->normal_z);
@@ -376,9 +464,12 @@ public:
 			attributes->normal_y *= -1;
 			attributes->normal_z *= -1;
 		}
-		auto data = contact_generate_distance_field(a, b , collision_p);
-		if (data.collide.x > 10.0f) {
-			return;
+		df_data data;
+		if (!waterflag) {
+			data = contact_generate_distance_field(a, b , collision_p, dt);
+			if (data.collide.x > 10.0f) {
+				return;
+			}
 		}
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(collision_distance), &zero1, GL_DYNAMIC_READ);
@@ -429,7 +520,7 @@ public:
 		glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	}
 
-	void collision_solve_regular(const vector<shared_ptr<GameObject>>& entity_list) {
+	void collision_solve_regular(const vector<shared_ptr<GameObject>>& entity_list,float dt) {
 		collisions.clear();
 		for (auto& a : entity_list) {
 			vector<shared_ptr<GameObject>> hitlist;
@@ -465,7 +556,7 @@ public:
 			hitlist.erase(std::unique(hitlist.begin(), hitlist.end()), hitlist.end());
 			for (auto& b : hitlist) {
 				// futher check by using voxelization result
-				resolve_collision(a, b);
+				resolve_collision(a, b, dt);
 			}
 		}
 	};

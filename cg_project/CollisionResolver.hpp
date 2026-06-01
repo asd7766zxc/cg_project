@@ -18,8 +18,8 @@ public:
 			std::swap(contact.data.Sa, contact.data.Sb);
 
 		}
-		
-		float restitution = 0.0f;
+		dt += contact.data.accumulated_time;
+		float restitution = 0.5f;
 
 		auto cnormal = contact.data.Na; //the normal is A to B (change to (B to A))  // °²¸Ë¬O B ©¹ A ¼² (A's persepective)
 		auto cpos = contact.A->localToWorld() * contact.data.Pa;
