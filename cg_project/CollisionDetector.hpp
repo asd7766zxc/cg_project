@@ -384,7 +384,7 @@ public:
 		return *data;
 	}
 
-	float target_precision = 1e-5f;
+	float target_precision = 1e-3f;
 	// 000000111111
 	df_data contact_generate_bisection_distance_field(shared_ptr<GameObject> a, shared_ptr<GameObject> b, vec3 collision_p, float dt) {
 		float l = 0, r = 1.0f;

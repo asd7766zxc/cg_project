@@ -134,7 +134,7 @@ public:
 	vec4 operator + (vec4 a) { return vec4(x + a.x, y + a.y, z + a.z, w + a.w); }
 	vec4 operator - (vec4 a) { return vec4(x - a.x, y - a.y, z - a.z, w - a.w); }
 	vec4 operator / (ld c) { return vec4(x / c, y / c, z / c, w / c); }
-	ld operator * (vec4 a) { return (x * a.x + y * a.y + z * a.z, w * a.w); }
+	ld operator * (vec4 a) { return (x * a.x + y * a.y + z * a.z + w * a.w); }
 	vec4 operator * (ld a) { return vec4(x * a, y * a, z * a, w * a); }
 	operator const float* () {
 		float* A = new float[4];
@@ -315,17 +315,17 @@ public:
 	inline void makeQuat(quat q) {
 		q.normalize();
 		mt[0] = 1 - (2 * q.j * q.j + 2 * q.k * q.k);
-		mt[1] = 2 * q.i * q.j + 2 * q.k * q.w;
-		mt[2] = 2 * q.i * q.k - 2 * q.j * q.w;
+		mt[1] = 2 * q.i * q.j - 2 * q.k * q.w;
+		mt[2] = 2 * q.i * q.k + 2 * q.j * q.w;
 		mt[3] = 0.0f;
 
-		mt[4] = 2 * q.i * q.j - 2 * q.k * q.w;
+		mt[4] = 2 * q.i * q.j + 2 * q.k * q.w;
 		mt[5] = 1 - (2 * q.i * q.i + 2 * q.k * q.k);
-		mt[6] = 2 * q.j * q.k + 2 * q.i * q.w;
+		mt[6] = 2 * q.j * q.k - 2 * q.i * q.w;
 		mt[7] = 0.0f;
 
-		mt[8] = 2 * q.i * q.k + 2 * q.j * q.w;
-		mt[9] = 2 * q.j * q.k - 2 * q.i * q.w;
+		mt[8] = 2 * q.i * q.k - 2 * q.j * q.w;
+		mt[9] = 2 * q.j * q.k + 2 * q.i * q.w;
 		mt[10] = 1 - (2 * q.i * q.i + 2 * q.j * q.j);
 		mt[11] = 0.0f;
 
@@ -488,8 +488,8 @@ public:
 		return ret;
 	}
 
-	// ¦pªG­n§ä¤@­ÓÅÜ´« T ªº¤T­Ó¶b¡A¥ı¨ú T.inverse ¦A¨ú¶b (T ¬O world ¥´¨ì local)
-	// local ¥´¨ì world ´Nª½±µ¨ú¶b
+	// å¦‚æœè¦æ‰¾ä¸€å€‹è®Šæ› T çš„ä¸‰å€‹è»¸ï¼Œå…ˆå– T.inverse å†å–è»¸ (T æ˜¯ world æ‰“åˆ° local)
+	// local æ‰“åˆ° world å°±ç›´æ¥å–è»¸
 
 	inline vec3 x_axis() const {
 		return vec3(mt[0], mt[4], mt[8]);
@@ -521,14 +521,14 @@ public:
 		for (int i = 0; i < 3; ++i) {
 			m[0 + i] = v[i][0];
 			m[4 + i] = v[i][1];
-			m[8 + i] = v[i][3];
+			m[8 + i] = v[i][2];
 		}
 		m[3 * 4 + 3] = 1;
 		return m;
 	}
 
 	//https://eecs.qmul.ac.uk/~gslabaugh/publications/euler.pdf
-	//±ÛÂà¤À¸Ñ
+	//æ—‹è½‰åˆ†è§£
 	vec3 toEulerAngles() const {
 		vec3 ret;
 		auto& [psi, theta, phi] = ret;

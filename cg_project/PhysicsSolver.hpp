@@ -43,18 +43,18 @@ public:
 		for (auto& c : entity_list) {
 			g->updateForce(c, dt);
 		}
-		for (auto& c : entity_list) c->integrate(dt);
-		for (auto& c : entity_list) c->update_aabb();
-		collision_detector->update_grid(entity_list);
-		
-		collision_detector->collision_solve_regular(entity_list,dt);
-		for (auto& a : collision_detector->collisions) {
-			if (a.inwater) {
-				continue;
-			}
-			CollisionResolver::ResolveVelocity(a, dt);
-		}
 		for (int i = 0; i < resolving_times; ++i) {
+			for (auto& c : entity_list) c->integrate(dt / resolving_times);
+			for (auto& c : entity_list) c->update_aabb();
+			collision_detector->update_grid(entity_list);
+		
+			collision_detector->collision_solve_regular(entity_list,dt);
+			for (auto& a : collision_detector->collisions) {
+				if (a.inwater) {
+					continue;
+				}
+				CollisionResolver::ResolveVelocity(a, dt);
+			}
 			for (auto& a : collision_detector->collisions) {
 				if (a.inwater) {
 					continue;

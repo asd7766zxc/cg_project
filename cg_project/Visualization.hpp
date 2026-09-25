@@ -204,4 +204,36 @@ public:
 		update_program_view(solid_color_program);
 		Visualization::draw_glow(obj, solid_color_program,color);
 	}
+
+	GLuint line_vao = 0, line_vbo = 0;
+	void draw_polyline(const vector<vec3>& pts, vec4 color) {
+		if (pts.size() < 2) return;
+		if (!line_vao) {
+			glGenVertexArrays(1, &line_vao);
+			glGenBuffers(1, &line_vbo);
+			glBindVertexArray(line_vao);
+			glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(0);
+			glBindVertexArray(0);
+		}
+		vector<float> buf;
+		buf.reserve(pts.size() * 3);
+		for (auto& p : pts) buf.push_back(p.x), buf.push_back(p.y), buf.push_back(p.z);
+		glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
+		glBufferData(GL_ARRAY_BUFFER, buf.size() * sizeof(float), buf.data(), GL_STREAM_DRAW);
+
+		update_program_view(solid_color_program);
+		solid_color_program->setMat4("model", mat4::identity());
+		solid_color_program->setVec4("solid_color", color);
+		glVertexAttrib3f(1, 1.0f, 1.0f, 0.5f);
+
+		glDisable(GL_DEPTH_TEST);
+		glBindVertexArray(line_vao);
+		glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)pts.size());
+		glPointSize(4.0f);
+		glDrawArrays(GL_POINTS, 0, (GLsizei)pts.size());
+		glBindVertexArray(0);
+		glEnable(GL_DEPTH_TEST);
+	}
 };

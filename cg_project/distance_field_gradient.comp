@@ -137,8 +137,8 @@ void main(){
 	Pa = findContactPointA(contact_point);
 	Pb = findContactPointB(contact_point);
 
-	Na = grad_B(Pa); // toward B
-	Nb = grad_A(Pb); // toward A
+	Na = -grad_A(Pa); // toward B
+	Nb = -grad_B(Pb); // toward A
 
 	Sa = Na * abs(D_B(Pa)) + Pa;
 	Sb = Nb * abs(D_A(Pb)) + Pb;

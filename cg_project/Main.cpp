@@ -52,6 +52,8 @@ bool pause_world = true;
 bool view_collision = false;
 bool view_points = true;
 bool view_aabb = false;
+bool view_trajectory = true;
+int trajectory_length = 600; // frames
 bool reset_flag = false;
 shared_ptr<GameObject> selected_forAdjustment;
 
@@ -231,6 +233,8 @@ void render_ui(float fps) {
 	ImGui::Checkbox("View Collision", &view_collision);
 	ImGui::Checkbox("View Collision Points", &view_collision_points);
 	ImGui::Checkbox("View Parameter Points", &view_points);
+	ImGui::Checkbox("View Trajectory", &view_trajectory);
+	ImGui::SliderInt("Trajectory length", &trajectory_length, 2, 5000);
 
 
 	ImGui::SliderInt("descent_iterations", &physic_solver.collision_detector->descent_iterations, 0, 400);
@@ -517,7 +521,7 @@ signed main() {
 	auto sphere_mesh = MeshBuilder::Sphere(10);
 	for (int i = 0; i < 2; ++i) {
 
-		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(sphere_mesh, texture_yellow);
+		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(teapot_nolid, texture_yellow);
 		moving_sphere->position = vec3(6, 5-i, 10-i);
 		moving_sphere->velocity = vec3(0, 0.1, 0);
 		moving_sphere->scale = vec3(0.5);
@@ -525,7 +529,7 @@ signed main() {
 		physic_solver.add_entity(moving_sphere);
 	}
 
-	shared_ptr<GameObject> light_sphere = make_shared<GameObject>(sphere_mesh, texture_blue);
+	shared_ptr<GameObject> light_sphere = make_shared<GameObject>(teapot_nolid, texture_blue);
 	light_sphere->position = vec3(6, 8, 6);
 	light_sphere->velocity = vec3(0, 0.1, 0);
 	light_sphere->scale = vec3(0.5);
@@ -743,6 +747,7 @@ signed main() {
 			for (int i = 0; i < 6; ++i) {
 				light_camera->vup = axis_up[i];
 				light_camera->lookAt(axis[i] + point_lights[l].position);
+				auto mat = light_camera->getMatrix();
 				shadow_program->setMat4("lightSpaceMatrices[" + std::to_string(i) + "]", light_camera->getMatrix());
 			}
 			shadow_program->setInt("current_light", l);
@@ -786,6 +791,18 @@ signed main() {
 			//for (auto& a : physic_solver.entity_list) visualizer.draw_voxel_collision(a);
 			if (view_aabb) for (auto& a : physic_solver.entity_list) visualizer.draw_aabb(*(a->bounding_box));
 			if(view_points) for (auto& a : physic_solver.entity_list) visualizer.draw_point(a->getWorldGravityCenter(), { 0,1,1,1 });
+			if (view_trajectory) {
+				// gravity center = toWorld() * origin = position, taken from the recorded frame history
+				for (size_t idx = 0; idx < physic_solver.entity_list.size(); ++idx) {
+					auto& a = physic_solver.entity_list[idx];
+					if (a->hasInifiniteMass() || a->penetrable) continue;
+					vector<vec3> pts;
+					for (int t = std::max(0, cur_time - trajectory_length); t < cur_time; ++t)
+						if (idx < obj_states[t].size()) pts.push_back(obj_states[t][idx].position);
+					pts.push_back(a->getWorldGravityCenter());
+					visualizer.draw_polyline(pts, { 1,0.5,0,1 });
+				}
+			}
 			for (auto& a : physic_solver.collision_detector->collisions) {
 				//if (a.inwater) continue;
 				if (view_collision) visualizer.draw_voxel_collision(a.draw_onB ? a.B : a.A);

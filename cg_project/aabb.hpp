@@ -23,7 +23,11 @@ public:
 		if (i == 1) return y;
 		return z;
 	}
-	
+	void adjust(const vec3& v) {
+		x.adjust(v.x);
+		y.adjust(v.y);
+		z.adjust(v.z);
+	}
 	bool hit(const aabb& other) const {
 		return x.intersect(other.x) && y.intersect(other.y) && z.intersect(other.z);
 	}
