@@ -293,9 +293,9 @@ void onResize(GLFWwindow* window, int width, int height) {
 signed main() {
 
 	camera = make_shared<Camera>();
-	camera->position = vec3(-4,-4,-0.5);
-	camera->yx = 0;
-	camera->rx = 0;
+	camera->position = vec3(-7.13026619, -3.15038109, 6.73415852);
+	camera->yx = 3.98099971;
+	camera->rx = -0.599999785;
 	camera->windowResize(window_width, window_height);
 
 #pragma region WindowInitialization
@@ -524,11 +524,11 @@ signed main() {
 	physic_solver = PhysicsSolver(voxelizer);
 
 	auto sphere_mesh = MeshBuilder::Sphere(10);
-	for (int i = 0; i < 2; ++i) {
+	for (int i = 0; i < 1; ++i) {
 
 		shared_ptr<GameObject> moving_sphere = make_shared<GameObject>(teapot_nolid, texture_yellow);
-		moving_sphere->position = vec3(6, 5-i, 10-i);
-		moving_sphere->velocity = vec3(0, 0.1, 0);
+		moving_sphere->position = vec3(-7.479, -3.464, 7.024);
+		moving_sphere->velocity = vec3(0, 0, 0);
 		moving_sphere->scale = vec3(0.5);
 		moving_sphere->mass = 157.08;
 		physic_solver.add_entity(moving_sphere);
@@ -614,7 +614,7 @@ signed main() {
 	shared_ptr<GameObject> wallR = make_shared<GameObject>(cube, texture_white);
 	wallR->mass = -1;
 	wallR->scale = vec3(5,5,5);
-	wallR->position = vec3(-4,-7,5);
+	wallR->position = vec3(-7.720,-6.470,7.087);
 	physic_solver.add_entity(wallR);
 
 	const float dt = 1/60.0;
@@ -663,6 +663,7 @@ signed main() {
 			interval ri(0, 100); // far plane
 			shared_ptr<GameObject> obj;
 			if (camera_control) return obj;
+			return obj;
 			for (auto& a : physic_solver.entity_list) {
 				if (a->penetrable) continue;
 				a->update_aabb();
