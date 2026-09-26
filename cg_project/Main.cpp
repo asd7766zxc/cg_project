@@ -237,6 +237,11 @@ void render_ui(float fps) {
 	ImGui::SliderInt("Trajectory length", &trajectory_length, 2, 5000);
 
 
+	ImGui::Text("Contact generation");
+	ImGui::RadioButton("Distance field", &physic_solver.collision_detector->contact_mode, CONTACT_DISTANCE_FIELD); ImGui::SameLine();
+	ImGui::RadioButton("Voxel", &physic_solver.collision_detector->contact_mode, CONTACT_VOXEL);
+	ImGui::Text("contacts this frame: %d", (int)physic_solver.collision_detector->collisions.size());
+
 	ImGui::SliderInt("descent_iterations", &physic_solver.collision_detector->descent_iterations, 0, 400);
 	ImGui::SliderFloat("descent_step", &physic_solver.collision_detector->descent_step, 0.0f, 0.001f,"%.6f");
 

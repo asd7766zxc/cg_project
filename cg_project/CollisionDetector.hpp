@@ -20,6 +20,10 @@ struct df_data {
 
 	float accumulated_time = 0.0f;
 };
+enum ContactMode {
+	CONTACT_DISTANCE_FIELD = 0, 
+	CONTACT_VOXEL = 1,
+};
 struct contact_attribute {
 	shared_ptr<GameObject> A, B;
 	vec3 normal;
@@ -179,6 +183,7 @@ public:
 	collision_attribute buffer[8];
 	int descent_iterations = 100;
 	float descent_step = 0.0005f;
+	int contact_mode = CONTACT_DISTANCE_FIELD;
 	void resolve_collision(shared_ptr<GameObject> a, shared_ptr<GameObject> b, float dt) {
 		if (a->penetrable && b->penetrable) return;
 		if (a->hasInifiniteMass() && b->hasInifiniteMass()) return;
@@ -452,6 +457,23 @@ public:
 		return tmp;
 
 	}
+	df_data contact_generate_voxel(shared_ptr<GameObject> a, shared_ptr<GameObject> b, vec3 n, vec3 p, float penetration) {
+		df_data data;
+		mat4 WtoA = a->worldToLocal();
+		mat4 WtoB = b->worldToLocal();
+		vec3 s = p + n * penetration; // deepest point, so |P - S| = penetration
+
+		data.Na = -n; // resolver pushes A along Na (B to A)
+		data.Nb = n;  // and B along Nb (A to B)
+		data.cp = p;
+		data.Pa = WtoA * p;
+		data.Pb = WtoB * p;
+		data.Sa = WtoA * s;
+		data.Sb = WtoB * s;
+		data.collide = vec3(0.0f);
+		data.accumulated_time = 0.0f;
+		return data;
+	}
 	void spliting(shared_ptr<GameObject> a, shared_ptr<GameObject> b, collision_attribute *attributes,bool waterflag,bool draw_result_onB,int index,float dt) {
 		// integer points are corners need to move to center
 		vec3 collision_p = vec3(attributes->point_x, attributes->point_y, attributes->point_z) * (1.0 / attributes->voxel_count) * voxelizer->voxel_size + a->voxel_info.box_corner + vec3(voxelizer->voxel_size / 2.0);
@@ -465,7 +487,7 @@ public:
 			attributes->normal_z *= -1;
 		}
 		df_data data;
-		if (!waterflag) {
+		if (!waterflag && contact_mode == CONTACT_DISTANCE_FIELD) {
 			data = contact_generate_distance_field(a, b , collision_p, dt);
 			if (data.collide.x > 10.0f) {
 				return;
@@ -503,6 +525,9 @@ public:
 
 		collision_p += min_contact_normal;
 		float penetration = real_max_penetration - real_min_penetration;
+		if (!waterflag && contact_mode == CONTACT_VOXEL) {
+			data = contact_generate_voxel(a, b, uni(contact_normal), collision_p, penetration);
+		}
 
 		// add contact records
 		collisions.push_back({
