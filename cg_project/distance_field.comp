@@ -92,7 +92,7 @@ void main(){
 		
 		// calculate the winding number
 	}
-	interior = (abs(winding) >= 0.01f); 
+	interior = (abs(winding) >= 0.5f); 
 	winding /= 2 * M_PI;
 	imageStore(distance_field,voxelCoord,vec4(interior ? -d : d,1,1,1));
 }

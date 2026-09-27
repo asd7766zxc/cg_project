@@ -663,7 +663,7 @@ signed main() {
 			interval ri(0, 100); // far plane
 			shared_ptr<GameObject> obj;
 			if (camera_control) return obj;
-			return obj;
+			//return obj;
 			for (auto& a : physic_solver.entity_list) {
 				if (a->penetrable) continue;
 				a->update_aabb();
